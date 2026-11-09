@@ -41,26 +41,28 @@ Deno.serve(async (req) => {
   }
 
   const task = body.task as string;
-  const userText = (body.text as string) || "";
+  const text = (body.text as string) || "";
+  const cats = (body.cats as string) || "";
   let system = "";
   let temperature = 0.3;
   let jsonMode = false;
+  let userContent = text;
 
   if (task === "translate") {
     system = "You are a professional translator. Translate the user's Chinese text into natural, clear, professional English. Output ONLY the translated text, with no explanations, no quotes, no extra words.";
   } else if (task === "suggest-plan") {
     jsonMode = true;
     temperature = 0.7;
-    system = `你是一位资深设计导师（Adobe Illustrator / Photoshop / 视觉传达方向），擅长根据学员的实际工作问题，定制「周末补强练习」。
+    system = `你是一位资深设计导师（graphic designer / 视觉传达方向），擅长根据学员的实际工作问题，定制「周末补强练习」。
 
-下面是设计实习生的本周工作记录（按天，含「任务」「遇到的问题」「感想」）。请：
-1. 找出他/她反复出现、或最影响效率的 2~3 个具体技能短板（例如：Illustrator 快捷键不熟、钢笔抠图不干净、溶图/调色拿不准、多尺寸适配慢等）。
+学员的长期方向是 graphic designer（视觉传达/平面设计）。下面会给出学员的「现有学习分类」和「本周工作记录」。请：
+1. 找出他/她反复出现、或最影响效率的 2~3 个具体技能短板（例如：Illustrator 快捷键不熟、钢笔抠图不干净、溶图/调色拿不准、多尺寸适配慢、排版/字体、动效、3D、品牌策略等）。
 2. 针对每个短板，给出这周末就能做、一次约 30–60 分钟的具体练习。
-3. 尽量直接关联记录里真实提到的问题。
+3. 每个建议归到一个分类：优先复用「现有分类」里的名字；如果都不合适，就建议一个新的分类名 + 一个合适的 emoji 图标（不要局限于 Illustrator/Photoshop 那几类，可以建议插画、动效、3D、品牌、排版等新方向）。
 
 只输出 JSON（不要任何多余文字、不要 markdown 代码块），格式：
-{"suggestions":[{"cat":"ai","title":"简短练习名","why":"一句话说明为什么练（结合他的问题）","steps":["第一步","第二步","第三步"]}]}
-其中 cat 只能是 ai / ps / kv 之一（ai=Illustrator, ps=Photoshop, kv=综合实战）。`;
+{"suggestions":[{"catName":"分类名","catIcon":"🎨","title":"简短练习名","why":"一句话说明为什么练（结合他的问题）","steps":["第一步","第二步","第三步"]}]}`;
+    userContent = (cats ? "现有学习分类：" + cats + "\n\n" : "") + "本周工作记录：\n" + text;
   } else {
     return json({ error: "Unknown task: " + task }, 400);
   }
@@ -69,7 +71,7 @@ Deno.serve(async (req) => {
     model: MODEL,
     messages: [
       { role: "system", content: system },
-      { role: "user", content: userText },
+      { role: "user", content: userContent },
     ],
     temperature,
     stream: false,
