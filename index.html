@@ -38,7 +38,7 @@
   .field label { display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: var(--accent-dark); font-weight: 600; letter-spacing: .3px; margin-bottom: 7px; gap: 8px; }
   .field label .hint { color: var(--muted); font-weight: 400; font-size: 12px; }
 
-  textarea, input[type=text], input[type=date], input[type=password] {
+  textarea, input[type=text], input[type=email], input[type=date], input[type=password] {
     width: 100%; border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px;
     font-size: 15px; color: var(--text); background: var(--card); font-family: inherit; resize: none; outline: none;
     box-shadow: inset 0 1px 2px rgba(60,45,20,.03); }
@@ -209,11 +209,14 @@
 
   /* 密码门 */
   #gate { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
-  .gate-card { width: 100%; max-width: 360px; text-align: center; }
-  .gate-card .mark { font-size: 40px; }
-  .gate-card h1 { font-size: 24px; margin: 8px 0 4px; }
-  .gate-card p { color: var(--muted); font-size: 14px; margin: 0 0 20px; }
-  .gate-card .err { color: var(--danger); font-size: 13px; min-height: 20px; margin: 10px 0 0; }
+  .gate-card { width: 100%; max-width: 380px; background: var(--card); border: 1px solid var(--border); border-radius: 20px; box-shadow: var(--shadow); padding: 32px 26px 28px; text-align: center; }
+  .gate-card .mark { font-size: 44px; line-height: 1; }
+  .gate-card h1 { font-size: 24px; margin: 12px 0 4px; }
+  .gate-card .sub { color: var(--muted); font-size: 13px; margin: 0 0 22px; }
+  .gate-card .field { text-align: left; }
+  .gate-card input { padding: 14px 14px; font-size: 16px; }
+  .gate-card .btn + .btn { margin-top: 10px; }
+  .gate-card .err { color: var(--danger); font-size: 13px; min-height: 20px; margin: 12px 0 0; }
 
   /* 弹窗 */
   .modal-bg { position: fixed; inset: 0; background: rgba(44,42,38,.4); display: none; align-items: center; justify-content: center; z-index: 50; padding: 24px; }
@@ -234,13 +237,17 @@
     <div class="gate-card">
       <div class="mark">🗒️</div>
       <h1 class="serif">工作日志</h1>
-      <p id="gateMsg">登录后数据会自动云同步</p>
-      <input type="email" id="gateEmail" placeholder="邮箱" autocomplete="email">
-      <div style="height:10px"></div>
-      <input type="password" id="gatePw" placeholder="密码（至少 6 位）" autocomplete="current-password">
-      <div style="height:12px"></div>
+      <p class="sub" id="gateMsg">登录后数据会自动云同步</p>
+      <div class="field">
+        <label for="gateEmail">邮箱</label>
+        <input type="email" id="gateEmail" placeholder="you@example.com" autocomplete="email">
+      </div>
+      <div class="field">
+        <label for="gatePw">密码</label>
+        <input type="password" id="gatePw" placeholder="至少 6 位" autocomplete="current-password">
+      </div>
       <button class="btn" id="gateBtn">登录</button>
-      <button class="btn ghost" id="gateSignupBtn" style="margin-top:10px">注册新账号</button>
+      <button class="btn ghost" id="gateSignupBtn">注册新账号</button>
       <p class="err" id="gateErr"></p>
     </div>
   </div>
