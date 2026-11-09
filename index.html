@@ -180,6 +180,20 @@
   .learned-notes { font-size: 13px; color: #5c5347; margin-top: 6px; line-height: 1.6; }
   .learned-review { font-size: 13px; color: var(--accent-dark); margin-top: 6px; }
 
+  /* AI 建议 */
+  .ai-btn { margin-bottom: 14px; }
+  .ai-loading { text-align: center; color: var(--muted); font-size: 13px; padding: 18px 0; }
+  .sug-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin-bottom: 12px; box-shadow: var(--shadow); }
+  .sug-top { display: flex; align-items: flex-start; gap: 10px; }
+  .sug-cat { font-size: 20px; line-height: 1.2; }
+  .sug-title { font-weight: 700; font-size: 15px; }
+  .sug-cat-name { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .sug-why { font-size: 13px; color: #5c5347; margin: 10px 0 6px; line-height: 1.6; }
+  .sug-why b { color: var(--accent-dark); }
+  .sug-steps { margin: 0; padding: 0 0 0 18px; font-size: 13px; color: #5c5347; line-height: 1.6; }
+  .sug-steps li { margin: 3px 0; }
+  .sug-add { margin-top: 12px; }
+
   /* 历史 */
   .entry-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; margin-bottom: 12px; box-shadow: var(--shadow); }
   .entry-card .head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
@@ -295,6 +309,8 @@
       <!-- 计划 -->
       <section id="view-plan" hidden>
         <div class="date-line" id="planWeekly"></div>
+        <button class="btn ghost ai-btn" id="aiSuggestBtn">🤖 分析本周记录 · 生成练习建议</button>
+        <div id="aiSuggestOut"></div>
         <div class="seg cat-seg" style="margin-bottom:14px" id="planCatSeg"></div>
         <div id="planList"></div>
         <div class="add-plan">
@@ -925,6 +941,73 @@
     saveCustom(); renderPlan(); renderDashboard(); toast('已添加到「'+(catOf(catId)||{name:'自定义'}).name+'」✓');
   };
   $('#newPlanInput').addEventListener('keydown', e => { if (e.key==='Enter') $('#addPlanBtn').onclick(); });
+
+  /* ---------- AI：按记录定制计划 ---------- */
+  let lastSuggestions = [];
+  $('#aiSuggestBtn').onclick = suggestPlan;
+
+  async function suggestPlan(){
+    const wk = weekEntries();
+    if (!wk.length) { toast('本周还没有记录，先去「记录」写几条吧'); return; }
+    const btn = $('#aiSuggestBtn');
+    btn.disabled = true; btn.textContent = '🤖 分析中…';
+    $('#aiSuggestOut').innerHTML = '<div class="ai-loading">正在读取本周记录并生成练习建议，请稍候…</div>';
+
+    const text = wk.slice().sort((a,b)=> a.date<b.date?-1:1).map(e => {
+      const lines = ['▎' + cnDate(parse(e.date))];
+      (e.tasks||[]).forEach(t => {
+        lines.push('　任务：' + (t.title||'(未命名)'));
+        if (t.problems) lines.push('　　问题：' + t.problems);
+        if (t.thoughts) lines.push('　　感想：' + t.thoughts);
+      });
+      return lines.join('\n');
+    }).join('\n');
+
+    try {
+      const { data, error } = await supabase.functions.invoke('ai', { body: { task: 'suggest-plan', text } });
+      if (error) throw error;
+      renderSuggestions(data);
+    } catch(err) {
+      const msg = (err && err.message) ? err.message : '';
+      $('#aiSuggestOut').innerHTML = '<div class="note" style="color:var(--danger)">生成失败' + (msg ? '（' + esc(msg) + '）' : '') + '。请确认：① AI 函数已部署 ② 已设置 DEEPSEEK_API_KEY ③ 已登录。</div>';
+    } finally {
+      btn.disabled = false; btn.textContent = '🤖 分析本周记录 · 生成练习建议';
+    }
+  }
+
+  function renderSuggestions(data){
+    const suggs = (data && data.suggestions) || [];
+    lastSuggestions = suggs;
+    if (!suggs.length) { $('#aiSuggestOut').innerHTML = '<div class="note">AI 这次没给出建议，补充一下「问题」描述后再试一次。</div>'; return; }
+    $('#aiSuggestOut').innerHTML = suggs.map((s, i) => {
+      const cat = catOf(s.cat) || catOf('ai');
+      const steps = (s.steps||[]).map((st)=>`<li>${esc(st)}</li>`).join('');
+      return `<div class="sug-card">
+        <div class="sug-top"><span class="sug-cat">${cat.icon}</span><div><div class="sug-title">${esc(s.title)}</div><div class="sug-cat-name">${esc(cat.name)}</div></div></div>
+        <div class="sug-why"><b>为什么练：</b>${esc(s.why || '')}</div>
+        ${steps ? `<ol class="sug-steps">${steps}</ol>` : ''}
+        <button class="btn small sug-add" data-si="${i}" type="button">＋ 加入计划</button>
+      </div>`;
+    }).join('');
+  }
+
+  $('#aiSuggestOut').addEventListener('click', e => {
+    const b = e.target.closest('.sug-add'); if (!b) return;
+    const sug = lastSuggestions[+b.dataset.si]; if (!sug) return;
+    addSuggestion(sug);
+    b.disabled = true; b.textContent = '已加入 ✓';
+  });
+
+  function addSuggestion(sug){
+    const catId = ['ai','ps','kv'].includes(sug.cat) ? sug.cat : 'ai';
+    (customItems[catId] = customItems[catId] || []).push(sug.title || '（未命名练习）');
+    const key = 'c' + catId + '-' + (customItems[catId].length - 1);
+    const d = detailStore[key] = detailStore[key] || {};
+    d.notes = '🎯 为什么练：' + (sug.why || '') + '\n\n📝 步骤：\n' + ((sug.steps||[]).map((st,j)=>(j+1)+'. '+st).join('\n') || '（无）');
+    saveCustom(); saveDetails();
+    renderPlan(); renderDashboard();
+    toast('已加入「' + (catOf(catId)||{name:'计划'}).name + '」✓');
+  }
 
   /* ---------- dashboard ---------- */
   function renderDashboard(){
