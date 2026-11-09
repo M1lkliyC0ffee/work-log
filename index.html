@@ -229,17 +229,19 @@
 </head>
 <body>
 
-  <!-- 密码门 -->
+  <!-- 登录门 -->
   <div id="gate">
     <div class="gate-card">
       <div class="mark">🗒️</div>
       <h1 class="serif">工作日志</h1>
-      <p>输入密码进入</p>
-      <input type="password" id="gatePw" placeholder="密码" autocomplete="off">
+      <p id="gateMsg">登录后数据会自动云同步</p>
+      <input type="email" id="gateEmail" placeholder="邮箱" autocomplete="email">
+      <div style="height:10px"></div>
+      <input type="password" id="gatePw" placeholder="密码（至少 6 位）" autocomplete="current-password">
       <div style="height:12px"></div>
-      <button class="btn" id="gateBtn">进入</button>
+      <button class="btn" id="gateBtn">登录</button>
+      <button class="btn ghost" id="gateSignupBtn" style="margin-top:10px">注册新账号</button>
       <p class="err" id="gateErr"></p>
-      <p class="note" style="margin-top:14px">原型默认密码：<b>1234</b>（可在右上角 ⚙️ 改）</p>
     </div>
   </div>
 
@@ -335,24 +337,23 @@
   <!-- 设置弹窗 -->
   <div class="modal-bg" id="settingsModal">
     <div class="modal">
-      <h2 class="serif">设置 · 改密码</h2>
-      <div class="field"><label>当前密码</label><input type="password" id="curPw"></div>
-      <div class="field"><label>新密码</label><input type="password" id="newPw"></div>
-      <div class="field"><label>确认新密码</label><input type="password" id="newPw2"></div>
-      <div style="display:flex; gap:10px; margin-top:6px">
-        <button class="btn ghost" id="cancelPw" style="flex:1">取消</button>
-        <button class="btn" id="savePw" style="flex:1">保存</button>
-      </div>
+      <h2 class="serif">设置</h2>
+      <p class="note" id="settingsEmail" style="margin:0 0 14px"></p>
+      <button class="btn ghost" id="signOutBtn" style="width:100%">退出登录</button>
+      <button class="btn" id="closeSettings" style="width:100%; margin-top:10px">关闭</button>
     </div>
   </div>
 
   <div id="toast"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.min.js"></script>
 <script>
 (function(){
   const $ = s => document.querySelector(s);
-  const LS_ENTRIES='wl_entries', LS_PW='wl_password', LS_PLAN='wl_plan', LS_CHECKINS='wl_checkins', LS_CUSTOM='wl_customplan', LS_DETAIL='wl_plandetail', LS_MAT='wl_matstate';
-  const DEFAULT_PW='1234';
+  const SUPABASE_URL = 'https://zvrpxbalgaqdskyfnwxz.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_G9h3kRdPC14lmjB3sNCkEw_g0qQvrRp';
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
   const WEEKLY_TARGET=3;
   const MOODS=['😞','😕','😐','🙂','😄'];
   const WEEK=['周日','周一','周二','周三','周四','周五','周六'];
@@ -457,45 +458,61 @@
     ]},
   ];
 
-  let entries = JSON.parse(localStorage.getItem(LS_ENTRIES) || '[]');
-  // 迁移旧结构：what/reflect → tasks；improve → vent
-  entries = entries.map(e => {
-    const n = { ...e };
-    if (!n.tasks) n.tasks = [{ id: 1, title: n.what || '', problems: '', thoughts: n.reflect || '' }];
-    if (n.improve !== undefined) { n.vent = n.improve; delete n.improve; }
-    delete n.what; delete n.reflect;
-    return n;
-  });
-  let password = localStorage.getItem(LS_PW) || DEFAULT_PW;
-  let planState = JSON.parse(localStorage.getItem(LS_PLAN) || '{}');
-  let checkins = JSON.parse(localStorage.getItem(LS_CHECKINS) || '{}');
-  let customItems = JSON.parse(localStorage.getItem(LS_CUSTOM) || '{}');
-  // 迁移旧结构：自定义项按「周」→ 按「分类」
-  if (Object.keys(customItems).some(k=>/^\d+$/.test(k))) {
-    const next = {};
-    Object.keys(customItems).forEach(k => {
-      if (/^\d+$/.test(k)) { const catId = STAGES[+k] ? STAGES[+k].cat : 'ai'; (next[catId]=next[catId]||[]).push(...customItems[k]); }
-      else { (next[k]=next[k]||[]).push(...customItems[k]); }
-    });
-    customItems = next;
-    localStorage.setItem(LS_CUSTOM, JSON.stringify(customItems));
-  }
+  let uid = null;
+  let currentEmail = '';
+  let entries = [];
+  let planState = {};
+  let checkins = {};
+  let customItems = {};
   let openStages = null;
   let planCat = null;
   let openDetails = null;
-  let detailStore = JSON.parse(localStorage.getItem(LS_DETAIL) || '{}');
-  let matState = JSON.parse(localStorage.getItem(LS_MAT) || '{}');
+  let detailStore = {};
+  let matState = {};
   let view = 'dashboard';
   let reviewSub = 'report';
   let reportLang = 'zh';
   let draftTasks = [{ title:'', problems:'', thoughts:'', open:true }];
 
-  const saveEntries = () => localStorage.setItem(LS_ENTRIES, JSON.stringify(entries));
-  const savePlan = () => localStorage.setItem(LS_PLAN, JSON.stringify(planState));
-  const saveCheckins = () => localStorage.setItem(LS_CHECKINS, JSON.stringify(checkins));
-  const saveCustom = () => localStorage.setItem(LS_CUSTOM, JSON.stringify(customItems));
-  const saveDetails = () => localStorage.setItem(LS_DETAIL, JSON.stringify(detailStore));
-  const saveMat = () => localStorage.setItem(LS_MAT, JSON.stringify(matState));
+  function replaceAll(table, rows){
+    return supabase.from(table).delete().eq('user_id', uid)
+      .then(() => rows.length ? supabase.from(table).insert(rows.map(r => ({ ...r, user_id: uid }))) : Promise.resolve())
+      .catch(err => console.error('save error', table, err));
+  }
+  const saveEntries = () => replaceAll('entries', entries.map(e => ({ id: e.id, date: e.date, tasks: e.tasks || [], vent: e.vent || '', mood: e.mood || 0, score: e.score || 0, updated_at: e.updatedAt || new Date().toISOString() })));
+  const savePlan = () => replaceAll('plan_state', Object.keys(planState).filter(k => planState[k]).map(k => ({ key: k, done_at: planState[k] })));
+  const saveCheckins = () => replaceAll('checkins', Object.keys(checkins).map(d => ({ date: d })));
+  const saveCustom = () => replaceAll('custom_plans', Object.keys(customItems).flatMap(catId => (customItems[catId]||[]).map((text, j) => ({ id: uuid(), cat_id: catId, text, position: j }))));
+  const saveDetails = () => replaceAll('plan_details', Object.keys(detailStore).map(k => ({ key: k, notes: detailStore[k].notes || '', images: detailStore[k].images || [], review: detailStore[k].review || '' })));
+  const saveMat = () => replaceAll('mat_state', Object.keys(matState).map(k => ({ key: k, checked: matState[k] || {} })));
+
+  async function loadAll(){
+    const [e, p, c, cu, d, m] = await Promise.all([
+      supabase.from('entries').select('*').order('date', { ascending: false }),
+      supabase.from('plan_state').select('*'),
+      supabase.from('checkins').select('*'),
+      supabase.from('custom_plans').select('*').order('position'),
+      supabase.from('plan_details').select('*'),
+      supabase.from('mat_state').select('*'),
+    ]);
+    entries = (e.data || []).map(r => ({ id: r.id, date: r.date, tasks: r.tasks || [], vent: r.vent || '', mood: r.mood || 0, score: r.score || 0, updatedAt: r.updated_at }));
+    planState = {}; (p.data || []).forEach(r => { if (r.done_at) planState[r.key] = r.done_at.slice(0, 10); });
+    checkins = {}; (c.data || []).forEach(r => { checkins[r.date] = true; });
+    customItems = {}; (cu.data || []).forEach(r => { (customItems[r.cat_id] = customItems[r.cat_id] || []).push(r.text); });
+    detailStore = {}; (d.data || []).forEach(r => { detailStore[r.key] = { notes: r.notes || '', images: r.images || [], review: r.review || '' }; });
+    matState = {}; (m.data || []).forEach(r => { matState[r.key] = r.checked || {}; });
+    // 一次性迁移：把旧版（存本机）的记录 + 打卡搬到云端
+    try {
+      const oe = localStorage.getItem('wl_entries');
+      if (oe && !entries.length) {
+        entries = JSON.parse(oe).map(x => ({ id: uuid(), date: x.date, tasks: x.tasks || [], vent: x.vent || '', mood: x.mood || 0, score: x.score || 0, updatedAt: x.updatedAt || new Date().toISOString() }));
+        saveEntries();
+      }
+      const oc = localStorage.getItem('wl_checkins');
+      if (oc && !Object.keys(checkins).length) { checkins = JSON.parse(oc); saveCheckins(); }
+    } catch(_) {}
+    refresh();
+  }
   function matChecked(key, i){ return !!(matState[key] && matState[key][i]); }
   function readImage(file, cb){
     const reader = new FileReader();
@@ -524,13 +541,37 @@
 
   function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),1800); }
 
-  /* ---------- 密码门 ---------- */
-  function tryGate(){
-    if ($('#gatePw').value === password) { $('#gate').style.display='none'; $('#app').hidden=false; $('#gatePw').value=''; refresh(); }
-    else { $('#gateErr').textContent='密码不对，再试试'; $('#gatePw').value=''; $('#gatePw').focus(); }
+  /* ---------- 登录门 ---------- */
+  function showGate(){ $('#gate').style.display='flex'; $('#app').hidden=true; }
+  async function enterApp(){
+    const { data: { user } } = await supabase.auth.getUser();
+    uid = user.id; currentEmail = user.email || '';
+    $('#gate').style.display='none'; $('#app').hidden=false;
+    await loadAll();
   }
-  $('#gateBtn').onclick = tryGate;
-  $('#gatePw').addEventListener('keydown', e => { if (e.key==='Enter') tryGate(); });
+  async function ensureSession(){
+    const { data } = await supabase.auth.getSession();
+    if (data.session) { await enterApp(); }
+    else { showGate(); }
+  }
+  $('#gateBtn').onclick = async () => {
+    const email = $('#gateEmail').value.trim(), pw = $('#gatePw').value;
+    if (!email || !pw) { $('#gateErr').textContent='请输入邮箱和密码'; return; }
+    $('#gateErr').textContent='登录中…';
+    const { error } = await supabase.auth.signInWithPassword({ email, password: pw });
+    if (error) { $('#gateErr').textContent = error.message; return; }
+    await enterApp();
+  };
+  $('#gateSignupBtn').onclick = async () => {
+    const email = $('#gateEmail').value.trim(), pw = $('#gatePw').value;
+    if (!email || pw.length < 6) { $('#gateErr').textContent='请填邮箱，密码至少 6 位'; return; }
+    $('#gateErr').textContent='注册中…';
+    const { data, error } = await supabase.auth.signUp({ email, password: pw });
+    if (error) { $('#gateErr').textContent = error.message; return; }
+    if (data.session) { await enterApp(); }
+    else { $('#gateMsg').textContent='已发确认邮件，去邮箱点确认后再登录'; $('#gateErr').textContent=''; }
+  };
+  $('#gatePw').addEventListener('keydown', e => { if (e.key==='Enter') $('#gateBtn').onclick(); });
 
   /* ---------- 视图 ---------- */
   document.querySelectorAll('nav.tabs button').forEach(b => b.onclick = () => switchView(b.dataset.view));
@@ -627,7 +668,7 @@
                             .filter(t => t.title || t.problems || t.thoughts);
     const vent = $('#fVent').value.trim();
     if (!tasks.length && !vent) { toast('至少写一个任务或吐槽'); return; }
-    const entry = { id: entries.find(e=>e.date===date)?.id || Date.now(), date, tasks, vent, mood: currentMood(), score: currentStars(), updatedAt: Date.now() };
+    const entry = { id: entries.find(e=>e.date===date)?.id || uuid(), date, tasks, vent, mood: currentMood(), score: currentStars(), updatedAt: new Date().toISOString() };
     entries = entries.filter(e => e.date !== date); entries.push(entry); entries.sort((a,b)=> a.date<b.date?1:-1);
     saveEntries();
     if (date === iso(new Date())) { checkins[date] = true; saveCheckins(); }
@@ -850,12 +891,14 @@
       });
     }
   });
+  let detailTimer = null;
   $('#planList').addEventListener('input', e => {
     if (e.target.matches('.pd-notes, .pd-review')) {
       const key = e.target.dataset.key, field = e.target.dataset.field;
       const d = detailStore[key] = detailStore[key] || {};
       d[field] = e.target.value;
-      saveDetails();
+      clearTimeout(detailTimer);
+      detailTimer = setTimeout(saveDetails, 700);
     }
   });
 
@@ -968,7 +1011,7 @@
   }
   $('#historyList').addEventListener('click', e => {
     const btn = e.target.closest('button'); if (!btn) return;
-    const id = +btn.dataset.id; const entry = entries.find(x=>x.id===id); if (!entry) return;
+    const id = btn.dataset.id; const entry = entries.find(x=>x.id===id); if (!entry) return;
     if (btn.dataset.act==='del') { if (confirm('删除这条记录？')) { entries=entries.filter(x=>x.id!==id); saveEntries(); renderHistory(); toast('已删除'); } }
     else if (btn.dataset.act==='edit') { $('#fDate').value=entry.date; setDraft(entry, true); switchView('tasks'); toast('已载入「记录」页'); }
   });
@@ -1009,19 +1052,15 @@
   };
   function fallbackCopy(text){ try { const ta=document.createElement('textarea'); ta.value=text; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select(); const ok=document.execCommand('copy'); document.body.removeChild(ta); return ok; } catch(e){ return false; } }
 
-  /* ---------- 设置 / 改密码 ---------- */
-  $('#gearBtn').onclick = () => $('#settingsModal').classList.add('show');
-  $('#cancelPw').onclick = () => { $('#settingsModal').classList.remove('show'); ['curPw','newPw','newPw2'].forEach(id=>$('#'+id).value=''); };
-  $('#savePw').onclick = () => {
-    const cur=$('#curPw').value, n1=$('#newPw').value, n2=$('#newPw2').value;
-    if (cur!==password) { toast('当前密码不对'); return; }
-    if (!n1 || n1.length<4) { toast('新密码至少 4 位'); return; }
-    if (n1!==n2) { toast('两次新密码不一致'); return; }
-    password=n1; localStorage.setItem(LS_PW,n1);
-    $('#settingsModal').classList.remove('show'); ['curPw','newPw','newPw2'].forEach(id=>$('#'+id).value=''); toast('密码已更新 ✓');
+  /* ---------- 设置 / 退出登录 ---------- */
+  $('#gearBtn').onclick = () => { $('#settingsEmail').textContent = '登录邮箱：' + (currentEmail || ''); $('#settingsModal').classList.add('show'); };
+  $('#closeSettings').onclick = () => $('#settingsModal').classList.remove('show');
+  $('#signOutBtn').onclick = async () => {
+    await supabase.auth.signOut();
+    location.reload();
   };
 
-  $('#gate').style.display='flex';
+  ensureSession();
 })();
 </script>
 <script>
