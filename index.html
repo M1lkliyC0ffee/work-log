@@ -181,7 +181,7 @@
   .learned-review { font-size: 13px; color: var(--accent-dark); margin-top: 6px; }
 
   /* AI 建议 */
-  .ai-btn { margin-bottom: 14px; }
+  .ai-btn { margin: 14px 0; }
   .ai-loading { text-align: center; color: var(--muted); font-size: 13px; padding: 18px 0; }
   .sug-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin-bottom: 12px; box-shadow: var(--shadow); }
   .sug-top { display: flex; align-items: flex-start; gap: 10px; }
@@ -309,8 +309,6 @@
       <!-- 计划 -->
       <section id="view-plan" hidden>
         <div class="date-line" id="planWeekly"></div>
-        <button class="btn ghost ai-btn" id="aiSuggestBtn">🤖 分析本周记录 · 生成练习建议</button>
-        <div id="aiSuggestOut"></div>
         <div class="seg cat-seg" style="margin-bottom:14px" id="planCatSeg"></div>
         <div id="planList"></div>
         <div class="add-plan">
@@ -318,6 +316,8 @@
           <input type="text" id="newPlanInput" placeholder="增加计划项，如：练习钢笔 30min">
           <button class="btn small" id="addPlanBtn">添加</button>
         </div>
+        <button class="btn ghost ai-btn" id="aiSuggestBtn">🤖 分析本周记录 · 生成练习建议</button>
+        <div id="aiSuggestOut"></div>
       </section>
 
       <!-- 回顾：周报 + 历史 -->
@@ -336,7 +336,7 @@
           </div>
           <div class="report-box" id="reportBox">点上方按钮生成这一周的工作摘要（自动排除心情、打分与吐槽）。</div>
           <button class="btn ghost" id="copyBtn" style="margin-top:12px" disabled>复制摘要</button>
-          <p class="note">正式版会接入翻译，切到 EN 时把内容也一并译成英文；原型先演示界面与切换。</p>
+          <p class="note">切到 EN 会用 AI 把本周摘要译成英文（会消耗少量 token，需登录）。</p>
         </div>
 
         <div id="reviewHistory" hidden>
@@ -364,6 +364,16 @@
       <p class="note" id="settingsEmail" style="margin:0 0 14px"></p>
       <button class="btn ghost" id="signOutBtn" style="width:100%">退出登录</button>
       <button class="btn" id="closeSettings" style="width:100%; margin-top:10px">关闭</button>
+    </div>
+  </div>
+
+  <!-- 二次确认弹窗 -->
+  <div class="modal-bg" id="confirmModal">
+    <div class="modal">
+      <h2 class="serif" id="confirmTitle">确认</h2>
+      <p class="note" id="confirmMsg" style="margin:0 0 16px"></p>
+      <button class="btn" id="confirmOk">确认</button>
+      <button class="btn ghost" id="confirmCancel" style="margin-top:10px">取消</button>
     </div>
   </div>
 
@@ -496,6 +506,9 @@
   let reviewSub = 'report';
   let reportLang = 'zh';
   let draftTasks = [{ title:'', problems:'', thoughts:'', open:true }];
+  let transCache = {};
+  let reportZh = '';
+  let reportEn = '';
 
   function replaceAll(table, rows){
     return supabase.from(table).delete().eq('user_id', uid)
@@ -644,7 +657,7 @@
           <div class="field">
             <label><span>感想</span><button class="trans-btn" data-act="trans" data-idx="${i}" type="button">译 EN</button></label>
             <textarea data-idx="${i}" data-field="thoughts" placeholder="这段的反思 / 学到了什么">${esc(t.thoughts)}</textarea>
-            <div class="trans-panel"><span class="tag">EN · 英文</span><span>（原型占位）正式版会在这里显示英文翻译。</span></div>
+            <div class="trans-panel"><span class="tag">EN · 英文</span><span class="trans-text"></span></div>
           </div>
         </div>
       </div>`).join('');
@@ -658,13 +671,40 @@
     const idx = +card.dataset.idx;
     if (act==='toggle') { draftTasks[idx].open = !draftTasks[idx].open; card.classList.toggle('open'); }
     else if (act==='del') { draftTasks.splice(idx,1); if (!draftTasks.length) draftTasks=[{title:'',problems:'',thoughts:'',open:true}]; renderTasks(); }
-    else if (act==='trans') { const p=card.querySelector('.trans-panel'); p.classList.toggle('show'); el.classList.toggle('on', p.classList.contains('show')); }
+    else if (act==='trans') {
+      const p = card.querySelector('.trans-panel');
+      const text = ((draftTasks[idx] && draftTasks[idx].thoughts) || '').trim();
+      if (p.classList.contains('show')) { p.classList.remove('show'); el.classList.remove('on'); return; }
+      if (!text) { toast('先写点感想再翻译'); return; }
+      const c = transCache[idx];
+      if (c && c.text === text) { showTrans(p, el, c.en); return; }
+      askConfirm('翻译感想', '将把这段感想翻译成英文（会消耗少量 token），确认继续？', '确认翻译', async () => {
+        el.textContent = '翻译中…'; el.classList.add('on');
+        try {
+          const { data, error } = await supabase.functions.invoke('ai', { body: { task: 'translate', text } });
+          if (error) throw error;
+          const en = (data && data.translation) || '';
+          transCache[idx] = { text, en };
+          showTrans(p, el, en);
+        } catch(err) {
+          el.textContent = '译 EN'; el.classList.remove('on');
+          toast('翻译失败：' + ((err && err.message) || '请检查 AI 函数与登录状态'));
+        }
+      });
+    }
   });
   $('#taskList').addEventListener('input', e => {
     const el = e.target; if (!el.dataset.field) return;
     const idx = +el.dataset.idx;
     if (draftTasks[idx]) draftTasks[idx][el.dataset.field] = el.value;
+    if (el.dataset.field === 'thoughts') delete transCache[idx];
   });
+
+  function showTrans(p, el, en){
+    p.querySelector('.trans-text').textContent = en || '（翻译为空）';
+    p.classList.add('show');
+    el.textContent = '译 EN'; el.classList.add('on');
+  }
 
   $('#addTaskBtn').onclick = () => {
     draftTasks.push({title:'',problems:'',thoughts:'',open:true});
@@ -942,18 +982,32 @@
   };
   $('#newPlanInput').addEventListener('keydown', e => { if (e.key==='Enter') $('#addPlanBtn').onclick(); });
 
+  /* ---------- 二次确认对话框 ---------- */
+  let confirmCb = null;
+  function askConfirm(title, msg, okLabel, cb){
+    $('#confirmTitle').textContent = title;
+    $('#confirmMsg').textContent = msg;
+    $('#confirmOk').textContent = okLabel || '确认';
+    confirmCb = cb;
+    $('#confirmModal').classList.add('show');
+  }
+  $('#confirmOk').onclick = () => { const cb = confirmCb; confirmCb = null; $('#confirmModal').classList.remove('show'); if (cb) cb(); };
+  $('#confirmCancel').onclick = () => { confirmCb = null; $('#confirmModal').classList.remove('show'); };
+
   /* ---------- AI：按记录定制计划 ---------- */
   let lastSuggestions = [];
-  $('#aiSuggestBtn').onclick = suggestPlan;
-
-  async function suggestPlan(){
+  $('#aiSuggestBtn').onclick = () => {
     const wk = weekEntries();
     if (!wk.length) { toast('本周还没有记录，先去「记录」写几条吧'); return; }
+    askConfirm('分析本周记录', '将把本周 ' + wk.length + ' 天的记录发给 AI 分析（会消耗少量 token），确认继续？', '确认分析', doSuggestPlan);
+  };
+
+  async function doSuggestPlan(){
     const btn = $('#aiSuggestBtn');
     btn.disabled = true; btn.textContent = '🤖 分析中…';
     $('#aiSuggestOut').innerHTML = '<div class="ai-loading">正在读取本周记录并生成练习建议，请稍候…</div>';
 
-    const text = wk.slice().sort((a,b)=> a.date<b.date?-1:1).map(e => {
+    const text = weekEntries().slice().sort((a,b)=> a.date<b.date?-1:1).map(e => {
       const lines = ['▎' + cnDate(parse(e.date))];
       (e.tasks||[]).forEach(t => {
         lines.push('　任务：' + (t.title||'(未命名)'));
@@ -1130,9 +1184,41 @@
     }).join('');
     return head + '\n' + body;
   }
-  $('#genReportBtn').onclick = () => { $('#reportBox').textContent = buildReport(reportLang); $('#reportBox').dataset.gen='1'; $('#copyBtn').disabled=false; };
-  $('#segZh').onclick = () => { reportLang='zh'; $('#segZh').classList.add('on'); $('#segEn').classList.remove('on'); if ($('#reportBox').dataset.gen) $('#reportBox').textContent=buildReport('zh'); };
-  $('#segEn').onclick = () => { reportLang='en'; $('#segEn').classList.add('on'); $('#segZh').classList.remove('on'); if ($('#reportBox').dataset.gen) $('#reportBox').textContent=buildReport('en'); };
+  $('#genReportBtn').onclick = () => {
+    reportZh = buildReport('zh');
+    reportEn = '';
+    reportLang = 'zh';
+    $('#segZh').classList.add('on'); $('#segEn').classList.remove('on');
+    $('#reportBox').textContent = reportZh;
+    $('#reportBox').dataset.gen = '1';
+    $('#copyBtn').disabled = false;
+  };
+  $('#segZh').onclick = () => {
+    reportLang = 'zh';
+    $('#segZh').classList.add('on'); $('#segEn').classList.remove('on');
+    if ($('#reportBox').dataset.gen !== '1') return;
+    if (!reportZh) reportZh = buildReport('zh');
+    $('#reportBox').textContent = reportZh;
+  };
+  $('#segEn').onclick = () => {
+    reportLang = 'en';
+    $('#segEn').classList.add('on'); $('#segZh').classList.remove('on');
+    if ($('#reportBox').dataset.gen !== '1') return;
+    if (!reportZh) reportZh = buildReport('zh');
+    if (!weekEntries().length) { $('#reportBox').textContent = buildReport('en'); return; }
+    if (reportEn) { $('#reportBox').textContent = reportEn; return; }
+    askConfirm('翻译周报', '将把本周摘要翻译成英文（会消耗少量 token），确认继续？', '确认翻译', async () => {
+      $('#reportBox').textContent = '翻译中…';
+      try {
+        const { data, error } = await supabase.functions.invoke('ai', { body: { task: 'translate', text: reportZh } });
+        if (error) throw error;
+        reportEn = (data && data.translation) || '';
+        $('#reportBox').textContent = reportEn || '（翻译失败，请重试）';
+      } catch(err) {
+        $('#reportBox').textContent = '翻译失败：' + ((err && err.message) || '请检查 AI 函数与登录状态');
+      }
+    });
+  };
 
   $('#copyBtn').onclick = () => {
     const t = $('#reportBox').textContent;
