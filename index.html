@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#FAF6EF">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>工作日志 · 原型</title>
+<style>
+  :root {
+    --bg: #FAF6EF; --card: #FFFFFF; --text: #2C2A26; --muted: #8A8278;
+    --accent: #4A7C59; --accent-dark: #3A6347; --brown: #C19A6B;
+    --border: #EAE2D4; --danger: #B5574A;
+    --shadow: 0 1px 2px rgba(60,45,20,.05), 0 4px 18px rgba(60,45,20,.06);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", "Microsoft YaHei", sans-serif; line-height: 1.6; }
+  .serif { font-family: Georgia, "Songti SC", "STSong", "SimSun", serif; }
+  button { font-family: inherit; cursor: pointer; }
+
+  .app { max-width: 460px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
+  #app[hidden] { display: none; }
+
+  header.top { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 12px;
+    position: sticky; top: 0; z-index: 10; background: rgba(250,246,239,.94); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); }
+  header.top h1 { font-size: 21px; margin: 0; font-weight: 600; letter-spacing: .5px; }
+  .gear { border: none; background: transparent; font-size: 20px; color: var(--muted); width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; }
+  .gear:active { background: var(--border); }
+
+  main { flex: 1; padding: 16px 20px 100px; }
+  .date-line { font-size: 14px; color: var(--muted); margin: 4px 0 14px; }
+  .date-line b { color: var(--accent-dark); font-weight: 600; }
+
+  .field { margin-bottom: 16px; }
+  .field label { display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: var(--accent-dark); font-weight: 600; letter-spacing: .3px; margin-bottom: 7px; gap: 8px; }
+  .field label .hint { color: var(--muted); font-weight: 400; font-size: 12px; }
+
+  textarea, input[type=text], input[type=date], input[type=password] {
+    width: 100%; border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px;
+    font-size: 15px; color: var(--text); background: var(--card); font-family: inherit; resize: none; outline: none;
+    box-shadow: inset 0 1px 2px rgba(60,45,20,.03); }
+  textarea:focus, input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(74,124,89,.12); }
+  textarea { min-height: 132px; }
+
+  .trans-btn { border: 1px solid var(--border); background: var(--card); color: var(--accent-dark); font-size: 12px; padding: 4px 10px; border-radius: 999px; letter-spacing: .3px; white-space: nowrap; }
+  .trans-btn.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .trans-panel { display: none; margin-top: 8px; border: 1px dashed var(--brown); border-radius: 12px; padding: 10px 12px; font-size: 13px; color: #6b5b3f; background: #FBF7EE; }
+  .trans-panel.show { display: block; }
+  .trans-panel .tag { font-size: 11px; color: var(--brown); letter-spacing: .3px; display: block; margin-bottom: 3px; }
+
+  .mood-row { display: flex; gap: 10px; }
+  .mood-btn { flex: 1; height: 46px; font-size: 22px; border: 1px solid var(--border); background: var(--card); border-radius: 12px; display: grid; place-items: center; }
+  .mood-btn.sel { border-color: var(--accent); background: #F0F5F1; box-shadow: 0 0 0 3px rgba(74,124,89,.12); }
+  .star-row { display: flex; gap: 6px; }
+  .star { font-size: 28px; color: var(--border); background: none; border: none; padding: 0 2px; }
+  .star.on { color: var(--brown); }
+
+  .btn { display: block; width: 100%; border: none; border-radius: 14px; padding: 14px; font-size: 16px; font-weight: 600; letter-spacing: 1px; background: var(--accent); color: #fff; }
+  .btn:active { background: var(--accent-dark); }
+  .btn.ghost { background: transparent; color: var(--accent-dark); border: 1px solid var(--accent); }
+  .btn.small { width: auto; display: inline-block; padding: 9px 16px; font-size: 13px; border-radius: 11px; }
+  .btn:disabled { opacity: .45; }
+
+  /* 记录 accordion */
+  .task-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; margin-bottom: 12px; box-shadow: var(--shadow); overflow: hidden; }
+  .task-head { display: flex; align-items: center; gap: 10px; padding: 13px 14px; cursor: pointer; }
+  .task-head .chev { transition: transform .2s; color: var(--muted); font-size: 14px; }
+  .task-card.open .task-head .chev { transform: rotate(180deg); }
+  .task-head .task-title { flex: 1; font-weight: 600; font-size: 15px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .task-del { border: none; background: transparent; color: var(--muted); font-size: 16px; padding: 6px; }
+  .task-body { display: none; padding: 2px 14px 14px; border-top: 1px solid var(--border); }
+  .task-card.open .task-body { display: block; }
+  .task-body .field:last-child { margin-bottom: 0; }
+  .add-task { width: 100%; border: 1px dashed var(--accent); background: transparent; color: var(--accent-dark); padding: 12px; border-radius: 14px; font-size: 14px; font-weight: 600; }
+
+  /* dashboard */
+  .dash-hero { background: #F0F5F1; border: 1px solid #D4E2D8; border-radius: 18px; padding: 20px; margin-bottom: 14px; box-shadow: var(--shadow); }
+  .hero-top { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; flex-wrap: wrap; }
+  .hero-tag { font-size: 12px; color: var(--accent-dark); font-weight: 700; letter-spacing: .5px; }
+  .hero-week { font-size: 12px; color: var(--muted); }
+  .hero-item { font-size: 16px; font-weight: 600; margin: 12px 0 14px; line-height: 1.5; }
+  .hero-foot { display: flex; gap: 10px; }
+
+  .stats { display: flex; gap: 10px; margin-bottom: 14px; }
+  .stat { flex: 1; background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 12px 10px; text-align: center; box-shadow: var(--shadow); }
+  .stat .n { font-size: 22px; font-weight: 700; color: var(--accent-dark); }
+  .stat .l { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .dash-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 18px; margin-bottom: 14px; box-shadow: var(--shadow); }
+  .dash-card h2 { font-size: 15px; margin: 0 0 10px; color: var(--accent-dark); }
+  .dash-row { display: flex; justify-content: space-between; align-items: center; font-size: 14px; padding: 4px 0; }
+  .dash-row b { color: var(--text); }
+  .line { font-size: 14px; margin: 3px 0; }
+
+  /* 计划：可折叠日历 + 周卡片 */
+  .cal-collapse { margin-bottom: 16px; }
+  .cal-toggle { width: 100%; display: flex; align-items: center; justify-content: space-between; background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; font-size: 15px; font-weight: 600; color: var(--text); box-shadow: var(--shadow); }
+  .cal-toggle .chev { transition: transform .2s; color: var(--muted); }
+  .cal-collapse.open .cal-toggle .chev { transform: rotate(180deg); }
+  .cal-collapse .cal-card { display: none; }
+  .cal-collapse.open .cal-card { display: block; margin-top: 12px; }
+
+  .cal-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px; box-shadow: var(--shadow); }
+  .cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .cal-head .mon { font-weight: 700; font-size: 16px; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
+  .cal-grid .wd { font-size: 11px; color: var(--muted); padding: 4px 0; }
+  .cal-grid .day { aspect-ratio: 1; display: grid; place-items: center; border-radius: 9px; font-size: 13px; }
+  .cal-grid .day.blank { }
+  .cal-grid .day.future { color: var(--border); }
+  .cal-grid .day.today { box-shadow: inset 0 0 0 2px var(--accent); font-weight: 700; }
+  .cal-grid .day.done { background: var(--accent); color: #fff; }
+  .cal-streak { margin-top: 12px; font-size: 13px; color: var(--accent-dark); display: flex; align-items: center; justify-content: space-between; }
+
+  .week-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; margin-bottom: 14px; box-shadow: var(--shadow); overflow: hidden; }
+  .week-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px; cursor: pointer; }
+  .week-head .chev { color: var(--muted); font-size: 14px; transition: transform .2s; }
+  .week-card.open .week-head .chev { transform: rotate(180deg); }
+  .week-head .wk-title { flex: 1; }
+  .week-head .wk-title .t { font-weight: 600; font-size: 15px; }
+  .week-head .wk-title .p { font-size: 12px; color: var(--muted); }
+  .week-head .cnt { font-size: 12px; color: var(--muted); }
+  .week-body { display: none; padding: 2px 16px 14px; border-top: 1px solid var(--border); }
+  .week-card.open .week-body { display: block; }
+  .progress { height: 6px; background: var(--border); border-radius: 99px; overflow: hidden; margin-top: 8px; }
+  .progress > i { display: block; height: 100%; background: var(--accent); border-radius: 99px; transition: width .3s; }
+  .plan-item { display: block; padding: 10px 2px; border-bottom: 1px dashed var(--border); font-size: 14px; }
+  .plan-item-top { display: flex; align-items: center; gap: 8px; }
+  .plan-item-title { display: flex; align-items: center; gap: 8px; flex: 1; text-align: left; background: none; border: none; padding: 0; font-size: 14px; font-weight: 600; color: var(--text); cursor: pointer; min-width: 0; }
+  .pi-check { min-width: 16px; flex: none; color: var(--accent); font-weight: 700; }
+  .pi-text { flex: 1; }
+  .plan-item.done .pi-text { color: var(--muted); text-decoration: line-through; }
+  .pi-chev { color: var(--muted); font-size: 12px; flex: none; }
+  .plan-del { border: none; background: transparent; color: var(--muted); font-size: 14px; padding: 2px 6px; flex: none; }
+  .plan-detail { display: none; margin: 10px 0 4px; padding: 12px; background: #FAF8F3; border: 1px solid var(--border); border-radius: 12px; }
+  .plan-detail.open { display: block; }
+  .vprog { display: flex; gap: 10px; align-items: stretch; margin-bottom: 12px; }
+  .vprog-track { width: 10px; min-height: 52px; background: var(--border); border-radius: 99px; overflow: hidden; flex: none; }
+  .vprog-track > i { display: block; width: 100%; background: var(--accent); border-radius: 99px; transition: height .3s; }
+  .vprog-body { flex: 1; }
+  .vprog-label { font-size: 12px; font-weight: 600; color: var(--accent-dark); }
+  .vprog-hint { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .pd-block { margin-bottom: 12px; }
+  .pd-block:last-child { margin-bottom: 0; }
+  .pd-label { font-size: 12px; font-weight: 600; color: var(--accent-dark); margin-bottom: 5px; }
+  .pd-sub { font-weight: 400; color: var(--muted); }
+  .pd-explain { font-size: 13px; color: #5c5347; line-height: 1.7; }
+  .pd-mats { margin: 0; padding: 0; list-style: none; }
+  .mat-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px dashed var(--border); }
+  .mat-item:last-child { border-bottom: none; }
+  .mat-item input { margin-top: 3px; width: 18px; height: 18px; accent-color: var(--accent); flex: none; }
+  .mat-body { flex: 1; font-size: 13px; line-height: 1.6; }
+  .mat-title { font-weight: 600; }
+  .mat-title a { color: var(--accent-dark); }
+  .mat-item.done .mat-title { color: var(--muted); text-decoration: line-through; }
+  .mat-d { color: var(--muted); font-size: 12px; margin-top: 2px; white-space: pre-line; }
+  .pd-notes, .pd-review { width: 100%; min-height: 74px; border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; font-size: 14px; font-family: inherit; background: #fff; resize: vertical; }
+  .pd-imgs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+  .img-thumb { position: relative; width: 72px; height: 72px; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); background: #fff; }
+  .img-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .img-thumb button { position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; border: none; border-radius: 50%; background: rgba(44,42,38,.6); color: #fff; font-size: 11px; line-height: 1; }
+  .pd-upload { display: inline-block; border: 1px dashed var(--accent); color: var(--accent-dark); font-size: 12px; padding: 6px 12px; border-radius: 10px; cursor: pointer; }
+
+  .add-plan { display: flex; gap: 10px; margin-top: 16px; }
+  .add-plan input { flex: 1; }
+  .add-plan select { flex: none; width: auto; border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; font-size: 13px; background: var(--card); color: var(--text); }
+  .cat-block { margin-bottom: 6px; }
+  .cat-head { display: flex; align-items: center; gap: 8px; padding: 12px 4px 6px; }
+  .cat-icon { font-size: 18px; }
+  .cat-name { font-weight: 700; font-size: 15px; color: var(--text); }
+  .cat-cnt { margin-left: auto; font-size: 12px; color: var(--muted); }
+  .hero-line { font-size: 12px; color: var(--muted); margin: 6px 0; }
+  .learned-group { margin-bottom: 16px; }
+  .learned-head { font-size: 13px; font-weight: 700; color: var(--accent-dark); margin-bottom: 8px; }
+  .learned-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; box-shadow: var(--shadow); }
+  .learned-title { font-weight: 600; font-size: 14px; }
+  .learned-when { font-weight: 400; color: var(--muted); font-size: 12px; }
+  .learned-notes { font-size: 13px; color: #5c5347; margin-top: 6px; line-height: 1.6; }
+  .learned-review { font-size: 13px; color: var(--accent-dark); margin-top: 6px; }
+
+  /* 历史 */
+  .entry-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; margin-bottom: 12px; box-shadow: var(--shadow); }
+  .entry-card .head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .entry-card .d { font-weight: 600; color: var(--accent-dark); font-size: 14px; }
+  .entry-card .mood { font-size: 15px; }
+  .entry-card .ops { display: flex; gap: 8px; margin-top: 10px; }
+  .entry-card .ops button { font-size: 12px; padding: 5px 12px; border-radius: 8px; border: 1px solid var(--border); background: #fff; color: var(--muted); }
+  .entry-card .ops button.del { color: var(--danger); border-color: #EBD3CD; }
+  .empty { text-align: center; color: var(--muted); padding: 50px 20px; font-size: 14px; }
+
+  /* 周报 */
+  .report-box { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 18px; margin-top: 14px; white-space: pre-wrap; font-size: 14px; box-shadow: var(--shadow); }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--card); }
+  .seg button { border: none; background: transparent; padding: 6px 14px; font-size: 13px; color: var(--muted); }
+  .seg button.on { background: var(--accent); color: #fff; }
+  .cat-seg { display: flex; width: 100%; }
+  .cat-seg button { flex: 1; }
+  .note { font-size: 12px; color: var(--muted); margin-top: 8px; }
+
+  /* 底部导航 */
+  nav.tabs { position: fixed; bottom: 0; left: 0; right: 0; z-index: 20; max-width: 460px; margin: 0 auto;
+    display: flex; background: rgba(255,255,255,.96); backdrop-filter: blur(8px); border-top: 1px solid var(--border);
+    padding: 6px 6px calc(6px + env(safe-area-inset-bottom)); }
+  nav.tabs button { flex: 1; border: none; background: transparent; padding: 7px 0; font-size: 12px; color: var(--muted); border-radius: 10px; letter-spacing: .3px; }
+  nav.tabs button .ic { display: block; font-size: 20px; line-height: 1.2; }
+  nav.tabs button.on { color: var(--accent-dark); font-weight: 600; }
+
+  /* 密码门 */
+  #gate { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .gate-card { width: 100%; max-width: 360px; text-align: center; }
+  .gate-card .mark { font-size: 40px; }
+  .gate-card h1 { font-size: 24px; margin: 8px 0 4px; }
+  .gate-card p { color: var(--muted); font-size: 14px; margin: 0 0 20px; }
+  .gate-card .err { color: var(--danger); font-size: 13px; min-height: 20px; margin: 10px 0 0; }
+
+  /* 弹窗 */
+  .modal-bg { position: fixed; inset: 0; background: rgba(44,42,38,.4); display: none; align-items: center; justify-content: center; z-index: 50; padding: 24px; }
+  .modal-bg.show { display: flex; }
+  .modal { background: var(--card); border-radius: 16px; padding: 22px; width: 100%; max-width: 360px; box-shadow: var(--shadow); }
+  .modal h2 { margin: 0 0 14px; font-size: 18px; }
+  .modal .field { margin-bottom: 12px; }
+
+  #toast { position: fixed; left: 50%; bottom: 100px; transform: translateX(-50%) translateY(20px); background: var(--text); color: #fff;
+    padding: 10px 18px; border-radius: 10px; font-size: 13px; opacity: 0; pointer-events: none; transition: .25s; z-index: 60; max-width: 80vw; text-align: center; }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+  <!-- 密码门 -->
+  <div id="gate">
+    <div class="gate-card">
+      <div class="mark">🗒️</div>
+      <h1 class="serif">工作日志</h1>
+      <p>输入密码进入</p>
+      <input type="password" id="gatePw" placeholder="密码" autocomplete="off">
+      <div style="height:12px"></div>
+      <button class="btn" id="gateBtn">进入</button>
+      <p class="err" id="gateErr"></p>
+      <p class="note" style="margin-top:14px">原型默认密码：<b>1234</b>（可在右上角 ⚙️ 改）</p>
+    </div>
+  </div>
+
+  <!-- 主应用 -->
+  <div class="app" id="app" hidden>
+    <header class="top">
+      <h1 class="serif">工作日志</h1>
+      <button class="gear" id="gearBtn" title="设置">⚙️</button>
+    </header>
+
+    <main>
+      <!-- 主页 dashboard -->
+      <section id="view-dashboard">
+        <div class="date-line" id="dashDate"></div>
+        <div class="dash-hero" id="heroCard"></div>
+        <div class="stats" id="statsRow"></div>
+        <div class="cal-collapse" id="calCollapse">
+          <button class="cal-toggle" id="calToggleBtn"><span id="calToggleLabel">📅 学习打卡</span><span class="chev">▾</span></button>
+          <div class="cal-card" id="calCard"></div>
+        </div>
+        <div class="dash-card" id="todayCard"></div>
+      </section>
+
+      <!-- 记录 -->
+      <section id="view-tasks" hidden>
+        <div class="field">
+          <label>日期</label>
+          <input type="date" id="fDate">
+        </div>
+        <div id="taskList"></div>
+        <button class="add-task" id="addTaskBtn">＋ 添加任务</button>
+        <div style="height:14px"></div>
+        <div class="field"><label>吐槽 <span class="hint">随便写 · 不进周报</span></label><textarea id="fVent" placeholder="例如：今天客户又让我改回第一版……（只有自己看得到）"></textarea></div>
+        <div class="field"><label>心情</label><div class="mood-row" id="moodRow">
+          <button class="mood-btn" data-v="1">😞</button><button class="mood-btn" data-v="2">😕</button><button class="mood-btn" data-v="3">😐</button><button class="mood-btn" data-v="4">🙂</button><button class="mood-btn" data-v="5">😄</button>
+        </div></div>
+        <div class="field"><label>打分 <span class="hint">1–5 星</span></label><div class="star-row" id="starRow">
+          <button class="star" data-v="1">★</button><button class="star" data-v="2">★</button><button class="star" data-v="3">★</button><button class="star" data-v="4">★</button><button class="star" data-v="5">★</button>
+        </div></div>
+        <button class="btn" id="saveBtn">保存</button>
+        <p class="note">心情、打分和吐槽只留给自己，不会进周报；保存今天的记录会自动打卡。</p>
+      </section>
+
+      <!-- 计划 -->
+      <section id="view-plan" hidden>
+        <div class="date-line" id="planWeekly"></div>
+        <div class="seg cat-seg" style="margin-bottom:14px" id="planCatSeg"></div>
+        <div id="planList"></div>
+        <div class="add-plan">
+          <select id="newPlanCat"></select>
+          <input type="text" id="newPlanInput" placeholder="增加计划项，如：练习钢笔 30min">
+          <button class="btn small" id="addPlanBtn">添加</button>
+        </div>
+      </section>
+
+      <!-- 回顾：周报 + 历史 -->
+      <section id="view-review" hidden>
+        <div class="date-line" id="reportRange"></div>
+        <div class="seg" style="margin-bottom:14px">
+          <button id="segReport" class="on">周报</button>
+          <button id="segHistory">历史</button>
+          <button id="segLearned">已学</button>
+        </div>
+
+        <div id="reviewReport">
+          <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">
+            <button class="btn small" id="genReportBtn">生成本周摘要</button>
+            <div class="seg"><button id="segZh" class="on">中</button><button id="segEn">EN</button></div>
+          </div>
+          <div class="report-box" id="reportBox">点上方按钮生成这一周的工作摘要（自动排除心情、打分与吐槽）。</div>
+          <button class="btn ghost" id="copyBtn" style="margin-top:12px" disabled>复制摘要</button>
+          <p class="note">正式版会接入翻译，切到 EN 时把内容也一并译成英文；原型先演示界面与切换。</p>
+        </div>
+
+        <div id="reviewHistory" hidden>
+          <div id="historyList"></div>
+        </div>
+
+        <div id="reviewLearned" hidden>
+          <div id="learnedList"></div>
+        </div>
+      </section>
+    </main>
+
+    <nav class="tabs">
+      <button data-view="dashboard" class="on"><span class="ic">🏠</span>主页</button>
+      <button data-view="tasks"><span class="ic">✏️</span>记录</button>
+      <button data-view="plan"><span class="ic">🎯</span>计划</button>
+      <button data-view="review"><span class="ic">📚</span>回顾</button>
+    </nav>
+  </div>
+
+  <!-- 设置弹窗 -->
+  <div class="modal-bg" id="settingsModal">
+    <div class="modal">
+      <h2 class="serif">设置 · 改密码</h2>
+      <div class="field"><label>当前密码</label><input type="password" id="curPw"></div>
+      <div class="field"><label>新密码</label><input type="password" id="newPw"></div>
+      <div class="field"><label>确认新密码</label><input type="password" id="newPw2"></div>
+      <div style="display:flex; gap:10px; margin-top:6px">
+        <button class="btn ghost" id="cancelPw" style="flex:1">取消</button>
+        <button class="btn" id="savePw" style="flex:1">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+<script>
+(function(){
+  const $ = s => document.querySelector(s);
+  const LS_ENTRIES='wl_entries', LS_PW='wl_password', LS_PLAN='wl_plan', LS_CHECKINS='wl_checkins', LS_CUSTOM='wl_customplan', LS_DETAIL='wl_plandetail', LS_MAT='wl_matstate';
+  const DEFAULT_PW='1234';
+  const WEEKLY_TARGET=3;
+  const MOODS=['😞','😕','😐','🙂','😄'];
+  const WEEK=['周日','周一','周二','周三','周四','周五','周六'];
+  const WEEK_EN=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const MON_EN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  const CATS = [
+    { id:'ai', name:'Illustrator', icon:'🎨' },
+    { id:'ps', name:'Photoshop', icon:'🖌️' },
+    { id:'kv', name:'综合实战', icon:'🏆' },
+  ];
+
+  const STAGES = [
+    { cat:'ai', title:'Illustrator 快捷键突击', items:[
+      { text:'过一遍 ~25 个高频快捷键（自查清单打勾）',
+        explain:'快捷键是 Illustrator 速度的地基：目标不是背下来，而是让「切工具、发命令」不用再看菜单，形成肌肉记忆（Muscle Memory）。先过一遍高频清单，之后每天用自然会熟。',
+        materials:[
+          { t:'Illustrator 官方默认键盘快捷键清单', u:'https://helpx.adobe.com/illustrator/using/default-keyboard-shortcuts.html', d:'最权威的完整清单，按功能分组（官方英文，可对照下面中文）' },
+          { t:'B站 · 新手快捷键入门', d:'在 bilibili 搜「Illustrator 快捷键 新手」，挑播放量高、近两年的视频' },
+          { t:'高频 25 键自查（中英对照）', d:'V 选择工具 Selection / Move\nA 直接选择 Direct Selection\nP 钢笔 Pen Tool / N 铅笔 Pencil\nT 文字 Type / M 矩形 Rectangle / L 椭圆 Ellipse\n⌘Z 撤销 Undo · ⌘⇧Z 重做 Redo\n⌘G 编组 Group · ⌘⇧G 取消编组 Ungroup\n⌘2 锁定 Lock · ⌘⌥2 解锁全部 Unlock All\n⌘3 隐藏 Hide · ⌘⌥3 显示全部 Show All\n⌘[ / ⌘] 后移一层 Send Backward / 前移一层 Bring Forward\n⌘⇧[ / ⌘⇧] 置底 Send to Back / 置顶 Bring to Front\n⌘7 剪切蒙版 Clipping Mask\n⌘D 再次变换 Transform Again · ⌘F 贴在前面 Paste in Front / ⌘B 贴在后面 Paste in Back\n⇧ 点选多选 Shift-click · ⌥ 拖动复制 Option-drag Duplicate\nX 交换填色/描边 Swap Fill & Stroke · D 默认 Default · / 无填色 None\n空格 抓手 Hand · ⌘+ / ⌘- 缩放 Zoom In / Out\n⇧F7 对齐 Align · ⇧⌘F9 路径查找器 Pathfinder' },
+        ]},
+      { text:'盲按 V/A、对齐、锁定/隐藏',
+        explain:'盲按 = 不低头看键盘和菜单就能切到正确工具，是速度的分水岭。重点练三件事：V/A 选择切换、选中后一键对齐（Align）、用 ⌘2 / ⌘3 快速整理画布。',
+        materials:[
+          { t:'Illustrator 官方默认键盘快捷键清单', u:'https://helpx.adobe.com/illustrator/using/default-keyboard-shortcuts.html', d:'配合下面的小训练' },
+          { t:'10 分钟盲按小训练', d:'连做 10 轮：新建 5 个形状 → V/A 各点一次 → 全选 → 水平对齐 → ⌘2 锁两个 → ⌘3 藏一个 → ⌘⌥2、⌘⌥3 还原。做到不低头完成一轮' },
+          { t:'B站 · 对齐与锁定技巧', d:'在 bilibili 搜「Illustrator 对齐 锁定」，看常见整理画布的提速技巧' },
+        ]},
+      { text:'1 分钟内建好 3 个命名画板',
+        explain:'画板（Artboard）是交付的基础：命名规范（如 KV_1080x1080、KV_1080x1920）能避免发错尺寸。目标是在 1 分钟内开好画板并命名清楚。',
+        materials:[
+          { t:'Illustrator 官方「使用多个画板」', u:'https://helpx.adobe.com/illustrator/using/using-multiple-artboards.html', d:'画板的创建、排序与导出' },
+          { t:'社媒尺寸速查（Social Media Sizes）', d:'帖子 Post 1080×1080 · 竖版 Portrait 1080×1350 · 快拍/竖视频 Story 1080×1920 · 链接预览 Link Preview 1200×630' },
+        ]},
+    ]},
+    { cat:'ps', title:'PS 修图 + 抠图', items:[
+      { text:'去背景 / 去瑕疵',
+        explain:'产品图最基础的两件事：去背景（Background Removal，让产品能叠进任何场景）和去瑕疵（Retouch：灰尘、划痕、反光点）。去背景用「对象选择/快速选择 + 图层蒙版 Layer Mask」，去小瑕疵用「污点修复画笔 Spot Healing Brush」点一下即可。',
+        materials:[
+          { t:'PS 官方「选择与蒙版」工作区', u:'https://helpx.adobe.com/photoshop/using/select-mask.html', d:'一键抠出主体的官方流程' },
+          { t:'B站 · 产品去背景', d:'在 bilibili 搜「PS 产品图 去背景」，看对象选择 + 蒙版的完整操作' },
+          { t:'PHLEARN 去背景教程', d:'在 YouTube 搜 PHLEARN “remove background”，看一遍完整流程' },
+        ]},
+      { text:'钢笔抠出干净产品剪影',
+        explain:'产品抠图要干净、边缘硬而利落，钢笔（Pen Tool）是最可控的工具。重点：路径（Path）贴边、锚点（Anchor Point）少、用手柄（Handle）控制弧度，最后转选区 + 羽化（Feather）0.5–1px 去锯齿。',
+        materials:[
+          { t:'PS 官方「钢笔工具」', u:'https://helpx.adobe.com/photoshop/using/drawing-pen-tools.html', d:'路径、锚点、手柄的官方讲解' },
+          { t:'B站 · 钢笔抠图详解', d:'在 bilibili 搜「PS 钢笔工具 抠图」，重点看锚点与手柄怎么配合' },
+          { t:'练习：抠一个瓶装产品', d:'找一张酸奶/牛奶产品图，用钢笔抠出剪影，放大 300% 检查边缘是否干净' },
+        ]},
+      { text:'能说清修复画笔 vs 仿制图章',
+        explain:'两者都是「取样替换」，区别决定什么时候用哪个：修复画笔（Healing Brush）会自动融合纹理/光影（去痘、去小瑕疵首选）；仿制图章（Clone Stamp）100% 复制（需要完全一致时用）。能用一句话说清区别 = 真懂了。',
+        materials:[
+          { t:'PS 官方「修饰与修复图像」', u:'https://helpx.adobe.com/photoshop/using/retouching-repairing-images.html', d:'两类工具的原理和适用场景' },
+          { t:'B站 · 修图工具对比', d:'在 bilibili 搜「PS 修复画笔 仿制图章」，看两者对比演示' },
+          { t:'口头自测', d:'不看资料，用一句话写出两者区别，能讲给朋友听懂就算过' },
+        ]},
+    ]},
+    { cat:'ps', title:'PS 溶图 + 调色', items:[
+      { text:'产品合成到背景、加阴影、统一色调',
+        explain:'溶图（Compositing）= 让产品和背景「长在一起」而不是贴上去。三件事缺一不可：接触阴影（Contact Shadow）、整体色调统一、光影方向一致。',
+        materials:[
+          { t:'PS 官方「图层蒙版」', u:'https://helpx.adobe.com/photoshop/using/masking-layers.html', d:'用蒙版做无损合成' },
+          { t:'B站 · 产品合成教程', d:'在 bilibili 搜「PS 产品合成 阴影」，重点看接触阴影怎么加' },
+          { t:'PHLEARN 产品合成教程', d:'在 YouTube 搜 PHLEARN “composite”，重点看阴影怎么加' },
+        ]},
+      { text:'2 分钟内换整套配色',
+        explain:'换色用于系列延展（同一张 KV 出多配色）。常用三招：色相/饱和度调整层（Hue/Saturation）、纯色填充 + 混合模式（Blend Mode）、Camera Raw 的白平衡（White Balance）与 HSL。',
+        materials:[
+          { t:'PS 官方「调整与填充图层」', u:'https://helpx.adobe.com/photoshop/using/adjustment-fill-layers.html', d:'非破坏调色的核心' },
+          { t:'B站 · 快速换色', d:'在 bilibili 搜「PS 快速换色 色相饱和度」，看调整层的用法' },
+          { t:'练习：同一张图出 3 配色', d:'给一张 KV 换出 3 套配色（暖 / 冷 / 品牌色），各存一张' },
+        ]},
+      { text:'3 种溶图方法（渐变/画笔/匹配颜色）',
+        explain:'三种方法适应不同场景：渐变映射（Gradient Map）统一整体色调、画笔蒙版做局部融合、匹配颜色（Match Color）让两个图源色温一致。重点是知道「什么时候用哪个」。',
+        materials:[
+          { t:'PS 官方「匹配颜色」', u:'https://helpx.adobe.com/photoshop/using/match-color-command.html', d:'让两图色温一致' },
+          { t:'B站 · 调色进阶', d:'在 bilibili 搜「PS 渐变映射 调色」，看统一色调的实战' },
+          { t:'tutvid 调色教程', d:'在 YouTube 搜 tutvid “color grading”，看渐变映射与 HSL 实战' },
+        ]},
+    ]},
+    { cat:'kv', title:'整合：PS → AI 做完整 KV', items:[
+      { text:'端到端交付 1 张主 KV + 2 尺寸适配',
+        explain:'完整交付 = 一张主视觉（Key Visual）+ 不同平台尺寸适配（不是等比缩放，是重新构图）。流程：AI 排文字/图形 → PS 做背景合成 → 输出多尺寸。',
+        materials:[
+          { t:'社媒尺寸速查（Social Media Sizes）', d:'帖子 Post 1080×1080 · 竖版 Portrait 1080×1350 · 快拍 Story 1080×1920' },
+          { t:'PS/AI 智能对象（Smart Object）互通', d:'在 PS 里「置入链接的 AI 智能对象」，改 AI 文件时 PS 会自动更新' },
+          { t:'B站 · KV 工作流', d:'在 bilibili 搜「PS AI 联动 工作流」，看设计师端到端出稿流程' },
+        ]},
+      { text:'录一个导出动作 / 存样式模板',
+        explain:'用「动作 Action」把重复导出自动化，用「图形样式/字符样式」存下常用样式，下次开新文件直接套用，速度翻倍。',
+        materials:[
+          { t:'PS 官方「记录动作」', u:'https://helpx.adobe.com/photoshop/using/recording-actions.html', d:'把导出流程录成一步完成' },
+          { t:'B站 · 导出动作录制', d:'在 bilibili 搜「PS 动作 Action 批量导出」，看怎么一键出多尺寸' },
+          { t:'练习：录一个「导出 JPG」动作', d:'录一个动作：合并可见 → 导出 JPG 质量 80 → 存到指定文件夹，之后一键完成' },
+        ]},
+      { text:'写 3 行复盘（构图/层级/改进）',
+        explain:'交付后花 5 分钟写复盘（构图 Composition 是否清晰、层级 Hierarchy 是否分明、下次哪里更快），这是「从模仿到有判断力」的关键闭环。',
+        materials:[
+          { t:'3 行复盘模板', d:'① 构图 Composition：主体/焦点是否一眼看到？ ② 层级 Hierarchy：文字-产品-背景的主次对不对？ ③ 改进 Improvement：下次哪一步能更快/更好？' },
+        ]},
+    ]},
+  ];
+
+  let entries = JSON.parse(localStorage.getItem(LS_ENTRIES) || '[]');
+  // 迁移旧结构：what/reflect → tasks；improve → vent
+  entries = entries.map(e => {
+    const n = { ...e };
+    if (!n.tasks) n.tasks = [{ id: 1, title: n.what || '', problems: '', thoughts: n.reflect || '' }];
+    if (n.improve !== undefined) { n.vent = n.improve; delete n.improve; }
+    delete n.what; delete n.reflect;
+    return n;
+  });
+  let password = localStorage.getItem(LS_PW) || DEFAULT_PW;
+  let planState = JSON.parse(localStorage.getItem(LS_PLAN) || '{}');
+  let checkins = JSON.parse(localStorage.getItem(LS_CHECKINS) || '{}');
+  let customItems = JSON.parse(localStorage.getItem(LS_CUSTOM) || '{}');
+  // 迁移旧结构：自定义项按「周」→ 按「分类」
+  if (Object.keys(customItems).some(k=>/^\d+$/.test(k))) {
+    const next = {};
+    Object.keys(customItems).forEach(k => {
+      if (/^\d+$/.test(k)) { const catId = STAGES[+k] ? STAGES[+k].cat : 'ai'; (next[catId]=next[catId]||[]).push(...customItems[k]); }
+      else { (next[k]=next[k]||[]).push(...customItems[k]); }
+    });
+    customItems = next;
+    localStorage.setItem(LS_CUSTOM, JSON.stringify(customItems));
+  }
+  let openStages = null;
+  let planCat = null;
+  let openDetails = null;
+  let detailStore = JSON.parse(localStorage.getItem(LS_DETAIL) || '{}');
+  let matState = JSON.parse(localStorage.getItem(LS_MAT) || '{}');
+  let view = 'dashboard';
+  let reviewSub = 'report';
+  let reportLang = 'zh';
+  let draftTasks = [{ title:'', problems:'', thoughts:'', open:true }];
+
+  const saveEntries = () => localStorage.setItem(LS_ENTRIES, JSON.stringify(entries));
+  const savePlan = () => localStorage.setItem(LS_PLAN, JSON.stringify(planState));
+  const saveCheckins = () => localStorage.setItem(LS_CHECKINS, JSON.stringify(checkins));
+  const saveCustom = () => localStorage.setItem(LS_CUSTOM, JSON.stringify(customItems));
+  const saveDetails = () => localStorage.setItem(LS_DETAIL, JSON.stringify(detailStore));
+  const saveMat = () => localStorage.setItem(LS_MAT, JSON.stringify(matState));
+  function matChecked(key, i){ return !!(matState[key] && matState[key][i]); }
+  function readImage(file, cb){
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 900;
+        let w = img.width, h = img.height;
+        const scale = Math.min(1, MAX / Math.max(w, h));
+        w = Math.round(w * scale); h = Math.round(h * scale);
+        const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+        const ctx = cv.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        cb(cv.toDataURL('image/jpeg', 0.72));
+      };
+      img.onerror = () => toast('图片读取失败');
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+  const iso = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const parse = s => { const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); };
+  const cnDate = d => `${d.getMonth()+1}月${d.getDate()}日 · ${WEEK[d.getDay()]}`;
+  const enDate = d => `${MON_EN[d.getMonth()]} ${d.getDate()}, ${WEEK_EN[d.getDay()]}`;
+  const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+
+  function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),1800); }
+
+  /* ---------- 密码门 ---------- */
+  function tryGate(){
+    if ($('#gatePw').value === password) { $('#gate').style.display='none'; $('#app').hidden=false; $('#gatePw').value=''; refresh(); }
+    else { $('#gateErr').textContent='密码不对，再试试'; $('#gatePw').value=''; $('#gatePw').focus(); }
+  }
+  $('#gateBtn').onclick = tryGate;
+  $('#gatePw').addEventListener('keydown', e => { if (e.key==='Enter') tryGate(); });
+
+  /* ---------- 视图 ---------- */
+  document.querySelectorAll('nav.tabs button').forEach(b => b.onclick = () => switchView(b.dataset.view));
+  document.addEventListener('click', e => { const g=e.target.closest('[data-go]'); if (g) switchView(g.dataset.go); });
+
+  function switchView(v){
+    view = v;
+    document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('on', b.dataset.view===v));
+    ['dashboard','tasks','plan','review'].forEach(n => { const el=$('#view-'+n); if (el) el.hidden = (n!==v); });
+    if (v==='dashboard') { renderDashboard(); renderCal(); }
+    if (v==='plan') renderPlan();
+    if (v==='review') { renderReportMeta(); renderHistory(); renderLearned(); toggleReviewSeg(); }
+    if (v==='tasks') renderTasks();
+  }
+
+  function refresh(){
+    $('#fDate').value = iso(new Date());
+    const e = entries.find(x => x.date === iso(new Date()));
+    setDraft(e);
+    switchView('dashboard');
+  }
+
+  /* ---------- 记录（任务草稿） ---------- */
+  function setDraft(entry, collapseAll){
+    if (entry && entry.tasks && entry.tasks.length) {
+      draftTasks = entry.tasks.map((t,i) => ({ title: t.title||'', problems: t.problems||'', thoughts: t.thoughts||'', open: collapseAll ? false : (i===0) }));
+    } else {
+      draftTasks = [{ title:'', problems:'', thoughts:'', open:true }];
+    }
+    $('#fVent').value = entry?.vent || '';
+    setMood(entry?.mood || 0); setStars(entry?.score || 0);
+    renderTasks();
+  }
+
+  function renderTasks(){
+    const box = $('#taskList');
+    box.innerHTML = draftTasks.map((t,i) => `
+      <div class="task-card${t.open?' open':''}" data-idx="${i}">
+        <div class="task-head" data-act="toggle">
+          <span class="chev">▾</span>
+          <span class="task-title">${t.title ? esc(t.title) : '任务 '+(i+1)}</span>
+          <button class="task-del" data-act="del" data-idx="${i}" type="button">✕</button>
+        </div>
+        <div class="task-body">
+          <div class="field"><label>标题</label><input type="text" data-idx="${i}" data-field="title" value="${esc(t.title)}" placeholder="任务名，如：酸奶 KV 主视觉"></div>
+          <div class="field"><label>遇到的问题</label><textarea data-idx="${i}" data-field="problems" placeholder="哪里卡住 / 哪里不满意">${esc(t.problems)}</textarea></div>
+          <div class="field">
+            <label><span>感想</span><button class="trans-btn" data-act="trans" data-idx="${i}" type="button">译 EN</button></label>
+            <textarea data-idx="${i}" data-field="thoughts" placeholder="这段的反思 / 学到了什么">${esc(t.thoughts)}</textarea>
+            <div class="trans-panel"><span class="tag">EN · 英文</span><span>（原型占位）正式版会在这里显示英文翻译。</span></div>
+          </div>
+        </div>
+      </div>`).join('');
+  }
+
+  $('#taskList').addEventListener('click', e => {
+    const el = e.target.closest('[data-act]');
+    if (!el) return;
+    const act = el.dataset.act;
+    const card = el.closest('.task-card');
+    const idx = +card.dataset.idx;
+    if (act==='toggle') { draftTasks[idx].open = !draftTasks[idx].open; card.classList.toggle('open'); }
+    else if (act==='del') { draftTasks.splice(idx,1); if (!draftTasks.length) draftTasks=[{title:'',problems:'',thoughts:'',open:true}]; renderTasks(); }
+    else if (act==='trans') { const p=card.querySelector('.trans-panel'); p.classList.toggle('show'); el.classList.toggle('on', p.classList.contains('show')); }
+  });
+  $('#taskList').addEventListener('input', e => {
+    const el = e.target; if (!el.dataset.field) return;
+    const idx = +el.dataset.idx;
+    if (draftTasks[idx]) draftTasks[idx][el.dataset.field] = el.value;
+  });
+
+  $('#addTaskBtn').onclick = () => {
+    draftTasks.push({title:'',problems:'',thoughts:'',open:true});
+    renderTasks();
+    const cards = document.querySelectorAll('.task-card'); const last = cards[cards.length-1];
+    if (last) last.scrollIntoView({behavior:'smooth', block:'start'});
+  };
+
+  function setMood(v){ document.querySelectorAll('#moodRow .mood-btn').forEach(b=>b.classList.toggle('sel', +b.dataset.v===v)); }
+  function setStars(v){ document.querySelectorAll('#starRow .star').forEach(b=>b.classList.toggle('on', +b.dataset.v<=v)); }
+  $('#moodRow').addEventListener('click', e => { const b=e.target.closest('.mood-btn'); if (b) setMood(+b.dataset.v); });
+  $('#starRow').addEventListener('click', e => { const b=e.target.closest('.star'); if (b) setStars(+b.dataset.v); });
+  const currentMood = () => { const b=document.querySelector('#moodRow .mood-btn.sel'); return b?+b.dataset.v:0; };
+  const currentStars = () => document.querySelectorAll('#starRow .star.on').length;
+
+  $('#fDate').addEventListener('change', () => {
+    const e = entries.find(x => x.date === $('#fDate').value);
+    setDraft(e);
+  });
+
+  $('#saveBtn').onclick = () => {
+    const date = $('#fDate').value || iso(new Date());
+    const tasks = draftTasks.map(t => ({ title:t.title.trim(), problems:t.problems.trim(), thoughts:t.thoughts.trim() }))
+                            .filter(t => t.title || t.problems || t.thoughts);
+    const vent = $('#fVent').value.trim();
+    if (!tasks.length && !vent) { toast('至少写一个任务或吐槽'); return; }
+    const entry = { id: entries.find(e=>e.date===date)?.id || Date.now(), date, tasks, vent, mood: currentMood(), score: currentStars(), updatedAt: Date.now() };
+    entries = entries.filter(e => e.date !== date); entries.push(entry); entries.sort((a,b)=> a.date<b.date?1:-1);
+    saveEntries();
+    if (date === iso(new Date())) { checkins[date] = true; saveCheckins(); }
+    toast('已保存 ✓');
+  };
+
+  /* ---------- 周范围 ---------- */
+  function weekRange(){
+    const now = new Date(); const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const day = (d.getDay()+6)%7; const start = new Date(d); start.setDate(d.getDate()-day);
+    const end = new Date(start); end.setDate(start.getDate()+6); return {start,end};
+  }
+  const inWeek = e => { const {start,end}=weekRange(); const t=iso(parse(e.date)); return t>=iso(start)&&t<=iso(end); };
+  const weekEntries = () => entries.filter(inWeek);
+
+  /* ---------- 计划 ---------- */
+  const checkedToday = () => !!checkins[iso(new Date())];
+
+  function catOf(id){ return CATS.find(c=>c.id===id); }
+  function stageItems(si){ return STAGES[si].items.map((it,ii)=>({ key:'s'+si+'-'+ii, text: it.text, explain: it.explain, materials: it.materials, custom:false })); }
+  function allItems(){
+    const list = [];
+    STAGES.forEach((st,si)=> st.items.forEach((it,ii)=> list.push({ key:'s'+si+'-'+ii, text: it.text, explain: it.explain, materials: it.materials, custom:false, catId: st.cat })));
+    Object.keys(customItems).forEach(catId => (customItems[catId]||[]).forEach((text,j)=> list.push({ key:'c'+catId+'-'+j, text, explain:null, materials:null, custom:true, catId })));
+    return list;
+  }
+  function planProgress(){
+    let total=0, done=0;
+    allItems().forEach(it=>{ total++; if (planState[it.key]) done++; });
+    return {total,done};
+  }
+  function stageDoneCount(si){ return STAGES[si].items.filter((it,ii)=>planState['s'+si+'-'+ii]).length; }
+  function currentStageIndex(){
+    for (let si=0; si<STAGES.length; si++) if (STAGES[si].items.some((it,ii)=>!planState['s'+si+'-'+ii])) return si;
+    return STAGES.length-1;
+  }
+  function nextItemInStage(si){
+    for (let ii=0; ii<STAGES[si].items.length; ii++) if (!planState['s'+si+'-'+ii]) return STAGES[si].items[ii].text;
+    return null;
+  }
+  function weekDoneCount(){
+    const {start,end}=weekRange();
+    let n=0;
+    allItems().forEach(it => {
+      const v=planState[it.key];
+      if (typeof v==='string' && v){ const t=iso(parse(v)); if (t>=iso(start) && t<=iso(end)) n++; }
+    });
+    return n;
+  }
+  function streakDays(){
+    let n=0; const d=new Date();
+    if (!checkins[iso(d)]) d.setDate(d.getDate()-1);
+    while (checkins[iso(d)]) { n++; d.setDate(d.getDate()-1); }
+    return n;
+  }
+  function checkinToday(){
+    const today = iso(new Date());
+    if (!checkins[today]) { checkins[today] = true; saveCheckins(); }
+    renderCal(); renderDashboard();
+  }
+
+  function renderCal(){
+    const now=new Date(), y=now.getFullYear(), m=now.getMonth();
+    const startDow=(new Date(y,m,1).getDay()+6)%7, daysIn=new Date(y,m+1,0).getDate(), todayIso=iso(now);
+    let cells='';
+    for (let i=0;i<startDow;i++) cells+='<div class="day blank"></div>';
+    for (let d=1;d<=daysIn;d++){
+      const key=iso(new Date(y,m,d));
+      const done=!!checkins[key], isToday=key===todayIso, isFuture=new Date(y,m,d)>now;
+      cells+=`<div class="day${done?' done':''}${isToday?' today':''}${isFuture?' future':''}">${d}</div>`;
+    }
+    $('#calToggleLabel').textContent = '📅 学习打卡 · 连续 '+streakDays()+' 天';
+    $('#calCard').innerHTML = `
+      <div class="cal-head"><span class="mon serif">${y}年${m+1}月</span><button class="btn small" id="calCheckinBtn" ${checkedToday()?'disabled':''}>${checkedToday()?'今日已打卡 ✓':'今日打卡'}</button></div>
+      <div class="cal-grid"><div class="wd">一</div><div class="wd">二</div><div class="wd">三</div><div class="wd">四</div><div class="wd">五</div><div class="wd">六</div><div class="wd">日</div>${cells}</div>
+      <div class="cal-streak"><span>🔥 连续打卡 <b>${streakDays()}</b> 天</span><span style="color:var(--muted)">写记录会自动打卡</span></div>`;
+  }
+
+  function renderPlan(){
+    if (!planCat) planCat = STAGES[currentStageIndex()].cat;
+    const wTarget = WEEKLY_TARGET, wd = weekDoneCount();
+    $('#planWeekly').innerHTML = '本周保底 <b>'+wTarget+'</b> 项 · 已完成 '+Math.min(wd,wTarget)+'/'+wTarget+(wd>=wTarget?' · 已达标 ✓':'');
+    document.querySelectorAll('#planCatSeg button').forEach(b => b.classList.toggle('on', b.dataset.cat===planCat));
+    const cat = catOf(planCat);
+    let html = '';
+    if (cat) {
+      const stageIdxs = STAGES.map((st,si)=>({st,si})).filter(x=>x.st.cat===cat.id);
+      const cust = (customItems[cat.id]||[]).map((text,j)=>({ key:'c'+cat.id+'-'+j, text, custom:true }));
+      const catItems = stageIdxs.flatMap(({st,si})=> stageItems(si)).concat(cust);
+      const cTotal = catItems.length, cDone = catItems.filter(it=>planState[it.key]).length;
+      html += `<div class="cat-block">
+        <div class="cat-head"><span class="cat-icon">${cat.icon}</span><span class="cat-name">${esc(cat.name)}</span><span class="cat-cnt">${cDone}/${cTotal}</span></div>`;
+      stageIdxs.forEach(({st,si}) => {
+        const items = stageItems(si);
+        const total = items.length, done = items.filter(it=>planState[it.key]).length;
+        const open = openStages ? openStages.has('s'+si) : (si===currentStageIndex());
+        html += `<div class="week-card${open?' open':''}" data-wk="s${si}">
+          <div class="week-head" data-act="wk-toggle">
+            <span class="chev">▾</span>
+            <div class="wk-title"><div class="t">${esc(st.title)}</div><div class="p">${done}/${total} 完成</div></div>
+            <span class="cnt">${done}/${total}</span>
+          </div>
+          <div class="week-body">
+            <div class="progress"><i style="width:${total?Math.round(done/total*100):0}%"></i></div>
+            ${items.map(it => renderPlanItem(it)).join('')}
+          </div>
+        </div>`;
+      });
+      if (cust.length) {
+        const open = openStages ? openStages.has('c'+cat.id) : false;
+        html += `<div class="week-card${open?' open':''}" data-wk="c${cat.id}">
+          <div class="week-head" data-act="wk-toggle"><span class="chev">▾</span><div class="wk-title"><div class="t">＋ 自定义</div><div class="p">自己添加的计划</div></div><span class="cnt">${cust.length}</span></div>
+          <div class="week-body">${cust.map(it => renderPlanItem(it)).join('')}</div>
+        </div>`;
+      }
+      html += `</div>`;
+    }
+    $('#planList').innerHTML = html;
+  }
+
+  function renderPlanItem(it){
+    const on = !!planState[it.key];
+    const d = detailStore[it.key] || {};
+    const open = openDetails ? openDetails.has(it.key) : false;
+    const mats = it.materials || [];
+    const matTotal = mats.length;
+    const matDone = mats.filter((m,i)=>matChecked(it.key,i)).length;
+    const pct = matTotal ? Math.round(matDone/matTotal*100) : 0;
+    const gateOk = matTotal ? (matDone === matTotal) : true;
+    const imgs = (d.images||[]).map((src,i)=>`<div class="img-thumb"><img src="${src}" alt=""><button data-act="img-del" data-key="${it.key}" data-idx="${i}" type="button">✕</button></div>`).join('');
+    const matsHtml = matTotal
+      ? `<div class="pd-block"><div class="pd-label">🔗 学习资料 <span class="pd-sub">每看完/做完一项打勾</span></div><ul class="pd-mats">${mats.map((m,i)=>{const c=matChecked(it.key,i);return `<li class="mat-item${c?' done':''}"><input type="checkbox" data-mat="${it.key}" data-mi="${i}" ${c?'checked':''}><div class="mat-body"><div class="mat-title">${m.u?`<a href="${esc(m.u)}" target="_blank" rel="noopener">${esc(m.t)}</a>`:esc(m.t)}</div>${m.d?`<div class="mat-d">${esc(m.d)}</div>`:''}</div></li>`;}).join('')}</ul></div>`
+      : '';
+    return `<div class="plan-item${on?' done':''}" data-key="${it.key}">
+      <div class="plan-item-top">
+        <button class="plan-item-title" data-act="more" data-key="${it.key}" type="button"><span class="pi-check">${on?'✓':''}</span><span class="pi-text">${esc(it.text)}</span><span class="pi-chev">${open?'▴':'▾'}</span></button>
+        ${it.custom ? `<button class="plan-del" data-del-key="${it.key}" type="button">✕</button>` : ''}
+      </div>
+      <div class="plan-detail${open?' open':''}">
+        ${matTotal ? `<div class="vprog"><div class="vprog-track"><i style="height:${pct}%"></i></div><div class="vprog-body"><div class="vprog-label">循序渐进 · ${matDone}/${matTotal} 步</div><div class="vprog-hint">${on?'已完成 ✓':(gateOk?'可以点下方「完成计划」了':'还差 '+(matTotal-matDone)+' 项资料未打勾')}</div></div></div>` : ''}
+        ${it.explain ? `<div class="pd-block"><div class="pd-label">📖 说明</div><div class="pd-explain">${esc(it.explain)}</div></div>` : ''}
+        ${matsHtml}
+        <div class="pd-block"><div class="pd-label">✍️ 完成记录</div><textarea class="pd-notes" data-key="${it.key}" data-field="notes" placeholder="完成这项后写点心得 / 学到了什么">${esc(d.notes||'')}</textarea></div>
+        <div class="pd-block"><div class="pd-label">🖼 图片</div><div class="pd-imgs">${imgs}</div><label class="pd-upload">＋ 上传图片<input type="file" accept="image/*" data-key="${it.key}" data-field="img" hidden></label></div>
+        <div class="pd-block"><div class="pd-label">💬 点评</div><textarea class="pd-review" data-key="${it.key}" data-field="review" placeholder="给自己一句点评（正式版可接入 Claude 自动点评）">${esc(d.review||'')}</textarea></div>
+        <button class="btn finish-btn" data-act="finish" data-key="${it.key}" ${on||!gateOk?'disabled':''}>${on?'已完成 ✓':'完成计划'}</button>
+      </div>
+    </div>`;
+  }
+
+  $('#calToggleBtn').onclick = () => $('#calCollapse').classList.toggle('open');
+
+  $('#calCard').addEventListener('click', e => {
+    if (e.target.closest('#calCheckinBtn')) checkinToday();
+  });
+
+  $('#planList').addEventListener('click', e => {
+    const head = e.target.closest('.week-head');
+    if (head) {
+      if (!openStages) openStages = new Set(['s'+currentStageIndex()]);
+      const wk = head.closest('.week-card').dataset.wk;
+      if (openStages.has(wk)) openStages.delete(wk); else openStages.add(wk);
+      head.closest('.week-card').classList.toggle('open');
+      return;
+    }
+    const del = e.target.closest('.plan-del');
+    if (del) {
+      const m = del.dataset.delKey.match(/^c(.+)-(\d+)$/);
+      if (m) { const catId=m[1], j=+m[2]; customItems[catId].splice(j,1); if (!customItems[catId].length) delete customItems[catId]; saveCustom(); renderPlan(); renderDashboard(); }
+      return;
+    }
+    const more = e.target.closest('[data-act="more"]');
+    if (more) {
+      if (!openDetails) openDetails = new Set();
+      const key = more.dataset.key;
+      if (openDetails.has(key)) openDetails.delete(key); else openDetails.add(key);
+      renderPlan();
+      return;
+    }
+    const imgDel = e.target.closest('[data-act="img-del"]');
+    if (imgDel) {
+      const key = imgDel.dataset.key, idx = +imgDel.dataset.idx;
+      const d = detailStore[key];
+      if (d && d.images) { d.images.splice(idx,1); if (!d.images.length) delete d.images; saveDetails(); }
+      renderPlan();
+      return;
+    }
+    const finish = e.target.closest('[data-act="finish"]');
+    if (finish) {
+      planState[finish.dataset.key] = iso(new Date()); savePlan();
+      renderPlan(); renderDashboard(); renderLearned();
+      toast('计划已完成，已归档到「已学」✓');
+    }
+  });
+  $('#planList').addEventListener('change', e => {
+    if (e.target.matches('input[data-mat]')) {
+      const key = e.target.dataset.mat, i = +e.target.dataset.mi;
+      if (!matState[key]) matState[key] = {};
+      if (e.target.checked) { matState[key][i] = true; }
+      else {
+        delete matState[key][i];
+        if (!Object.keys(matState[key]).length) delete matState[key];
+        if (planState[key]) { planState[key] = false; savePlan(); }
+      }
+      saveMat();
+      renderPlan(); renderDashboard();
+      return;
+    }
+    if (e.target.matches('input[type=file]')) {
+      const key = e.target.dataset.key;
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      readImage(file, dataURL => {
+        const d = detailStore[key] = detailStore[key] || {};
+        (d.images = d.images || []).push(dataURL);
+        saveDetails();
+        if (!openDetails) openDetails = new Set(); openDetails.add(key);
+        renderPlan();
+        toast('图片已保存 ✓');
+      });
+    }
+  });
+  $('#planList').addEventListener('input', e => {
+    if (e.target.matches('.pd-notes, .pd-review')) {
+      const key = e.target.dataset.key, field = e.target.dataset.field;
+      const d = detailStore[key] = detailStore[key] || {};
+      d[field] = e.target.value;
+      saveDetails();
+    }
+  });
+
+  $('#newPlanCat').innerHTML = CATS.map(c=>`<option value="${c.id}">${c.icon} ${esc(c.name)}</option>`).join('');
+  $('#planCatSeg').innerHTML = CATS.map(c=>`<button data-cat="${c.id}">${c.icon} ${esc(c.name)}</button>`).join('');
+  $('#planCatSeg').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    planCat = b.dataset.cat;
+    renderPlan();
+  });
+  $('#addPlanBtn').onclick = () => {
+    const txt = $('#newPlanInput').value.trim();
+    if (!txt) { toast('先写点内容再添加'); return; }
+    const catId = $('#newPlanCat').value || 'ai';
+    (customItems[catId] = customItems[catId] || []).push(txt);
+    $('#newPlanInput').value='';
+    saveCustom(); renderPlan(); renderDashboard(); toast('已添加到「'+(catOf(catId)||{name:'自定义'}).name+'」✓');
+  };
+  $('#newPlanInput').addEventListener('keydown', e => { if (e.key==='Enter') $('#addPlanBtn').onclick(); });
+
+  /* ---------- dashboard ---------- */
+  function renderDashboard(){
+    $('#dashDate').innerHTML = '今天是 <b>'+cnDate(new Date())+'</b>';
+    const si = currentStageIndex();
+    const stage = STAGES[si];
+    const next = nextItemInStage(si);
+    const cat = catOf(stage.cat);
+    const wTarget = WEEKLY_TARGET, wd = weekDoneCount();
+    const wMet = wd >= wTarget;
+    const {total,done} = planProgress();
+    $('#heroCard').innerHTML = `
+      <div class="hero-top"><span class="hero-tag">今日学习计划</span><span class="hero-week">${cat?cat.icon+' '+esc(cat.name):''} · ${esc(stage.title)}</span></div>
+      <div class="hero-item">${next ? esc(next) : '🎉 全部计划已完成'}</div>
+      <div class="hero-line">本周保底 ${wTarget} 项 · 已完成 ${Math.min(wd,wTarget)}/${wTarget} ${wMet?'已达标 ✓':''}${(wMet&&next)?' · 可超额练习':''}</div>
+      <div class="hero-foot"><button class="btn ghost small" data-go="plan">去计划 →</button></div>`;
+    const wk = weekEntries();
+    $('#statsRow').innerHTML = `
+      <div class="stat"><div class="n">${done}/${total}</div><div class="l">计划进度</div></div>
+      <div class="stat"><div class="n">${wk.length}</div><div class="l">本周记录(天)</div></div>
+      <div class="stat"><div class="n">${streakDays()}</div><div class="l">连续打卡(天)</div></div>`;
+    const todayEntry = entries.find(x=>x.date===iso(new Date()));
+    const tasksHtml = todayEntry && todayEntry.tasks && todayEntry.tasks.length
+      ? todayEntry.tasks.map(t=>`<div class="line">• ${esc(t.title||'(未命名)')}</div>`).join('')
+      : '<div class="line" style="color:var(--muted)">还没有记录，去「记录」写一条吧</div>';
+    const moodEmoji = todayEntry && todayEntry.mood ? MOODS[todayEntry.mood-1] : '—';
+    const stars = todayEntry && todayEntry.score ? '★'.repeat(todayEntry.score) : '';
+    $('#todayCard').innerHTML = `
+      <h2 class="serif">今日记录</h2>
+      ${tasksHtml}
+      <div class="dash-row" style="margin-top:6px"><span>心情 / 打分</span><b>${moodEmoji} ${stars||'未评'}</b></div>
+      <button class="btn ghost small" data-go="tasks" style="margin-top:10px">去记录 →</button>`;
+  }
+
+  /* ---------- 回顾 ---------- */
+  function toggleReviewSeg(){
+    $('#segReport').classList.toggle('on', reviewSub==='report');
+    $('#segHistory').classList.toggle('on', reviewSub==='history');
+    $('#segLearned').classList.toggle('on', reviewSub==='learned');
+    $('#reviewReport').hidden = reviewSub!=='report';
+    $('#reviewHistory').hidden = reviewSub!=='history';
+    $('#reviewLearned').hidden = reviewSub!=='learned';
+  }
+  $('#segReport').onclick = () => { reviewSub='report'; toggleReviewSeg(); };
+  $('#segHistory').onclick = () => { reviewSub='history'; toggleReviewSeg(); };
+  $('#segLearned').onclick = () => { reviewSub='learned'; toggleReviewSeg(); renderLearned(); };
+
+  function renderLearned(){
+    const box = $('#learnedList');
+    const done = allItems().filter(it => planState[it.key]);
+    if (!done.length) { box.innerHTML = '<div class="empty">还没有完成的计划。去「计划」完成第一项吧。</div>'; return; }
+    const groups = {};
+    done.forEach(it => {
+      const cat = catOf(it.catId); const gname = cat ? cat.icon+' '+cat.name : '其它';
+      (groups[gname] = groups[gname] || []).push(it);
+    });
+    box.innerHTML = Object.keys(groups).map(gname => {
+      return `<div class="learned-group">
+        <div class="learned-head">${esc(gname)}</div>
+        ${groups[gname].map(it => {
+          const d = detailStore[it.key] || {};
+          const when = (typeof planState[it.key]==='string' && planState[it.key]) ? ' · '+planState[it.key] : '';
+          const imgs = (d.images||[]).map(src=>`<div class="img-thumb"><img src="${src}" alt=""></div>`).join('');
+          const notes = d.notes ? `<div class="learned-notes">${esc(d.notes)}</div>` : '';
+          const review = d.review ? `<div class="learned-review">💬 ${esc(d.review)}</div>` : '';
+          return `<div class="learned-card">
+            <div class="learned-title">✓ ${esc(it.text)}<span class="learned-when">${when}</span></div>
+            ${notes}${review}
+            ${imgs ? `<div class="pd-imgs" style="margin-top:8px">${imgs}</div>` : ''}
+          </div>`;
+        }).join('')}
+      </div>`;
+    }).join('');
+  }
+
+  function renderHistory(){
+    const box = $('#historyList');
+    if (!entries.length) { box.innerHTML='<div class="empty">还没有记录。去「记录」写第一条吧。</div>'; return; }
+    box.innerHTML = entries.map(e => {
+      const d = parse(e.date);
+      const mood = e.mood ? MOODS[e.mood-1] : '';
+      const star = e.score ? '★'.repeat(e.score) : '';
+      const tasksHtml = (e.tasks||[]).map(t => `<div class="line">• ${esc(t.title||'(未命名任务)')}</div>`).join('');
+      const vent = e.vent ? `<div class="line"><b>💬 吐槽</b>　${esc(e.vent)}</div>` : '';
+      return `<div class="entry-card">
+        <div class="head"><span class="d serif">${cnDate(d)}</span><span class="mood">${mood} ${star}</span></div>
+        ${tasksHtml}${vent}
+        <div class="ops"><button data-act="edit" data-id="${e.id}">编辑</button><button class="del" data-act="del" data-id="${e.id}">删除</button></div>
+      </div>`;
+    }).join('');
+  }
+  $('#historyList').addEventListener('click', e => {
+    const btn = e.target.closest('button'); if (!btn) return;
+    const id = +btn.dataset.id; const entry = entries.find(x=>x.id===id); if (!entry) return;
+    if (btn.dataset.act==='del') { if (confirm('删除这条记录？')) { entries=entries.filter(x=>x.id!==id); saveEntries(); renderHistory(); toast('已删除'); } }
+    else if (btn.dataset.act==='edit') { $('#fDate').value=entry.date; setDraft(entry, true); switchView('tasks'); toast('已载入「记录」页'); }
+  });
+
+  function renderReportMeta(){
+    const {start,end}=weekRange();
+    $('#reportRange').innerHTML = '本周：<b>'+cnDate(start).split(' · ')[0]+' – '+cnDate(end).split(' · ')[0]+'</b>';
+  }
+  function buildReport(lang){
+    const {start,end}=weekRange();
+    const list = weekEntries().sort((a,b)=> a.date<b.date?-1:1);
+    if (!list.length) return lang==='zh' ? '本周还没有记录。' : 'No entries this week yet.';
+    const head = lang==='zh'
+      ? `📋 本周工作总结\n（${start.getMonth()+1}月${start.getDate()}日 – ${end.getMonth()+1}月${end.getDate()}日）`
+      : `📋 Weekly Work Summary\n(${MON_EN[start.getMonth()]} ${start.getDate()} – ${MON_EN[end.getMonth()]} ${end.getDate()})`;
+    const L = lang==='zh' ? {task:'任务', problem:'问题', thought:'感想'} : {task:'Task', problem:'Problem', thought:'Thoughts'};
+    const body = list.map(e => {
+      const d = parse(e.date);
+      let s = `\n▎${lang==='zh'?cnDate(d):enDate(d)}`;
+      (e.tasks||[]).forEach((t,i) => {
+        s += `\n　${L.task}${(e.tasks.length>1)?(i+1):''}：${t.title||'(未命名)'}`;
+        if (t.problems) s += `\n　　　${L.problem}：${t.problems}`;
+        if (t.thoughts) s += `\n　　　${L.thought}：${t.thoughts}`;
+      });
+      return s;
+    }).join('');
+    return head + '\n' + body;
+  }
+  $('#genReportBtn').onclick = () => { $('#reportBox').textContent = buildReport(reportLang); $('#reportBox').dataset.gen='1'; $('#copyBtn').disabled=false; };
+  $('#segZh').onclick = () => { reportLang='zh'; $('#segZh').classList.add('on'); $('#segEn').classList.remove('on'); if ($('#reportBox').dataset.gen) $('#reportBox').textContent=buildReport('zh'); };
+  $('#segEn').onclick = () => { reportLang='en'; $('#segEn').classList.add('on'); $('#segZh').classList.remove('on'); if ($('#reportBox').dataset.gen) $('#reportBox').textContent=buildReport('en'); };
+
+  $('#copyBtn').onclick = () => {
+    const t = $('#reportBox').textContent;
+    const done = () => toast('已复制到剪贴板 ✓'), fail = () => toast('复制失败，请手动全选复制');
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done).catch(()=>fallbackCopy(t)?done():fail());
+    else fallbackCopy(t)?done():fail();
+  };
+  function fallbackCopy(text){ try { const ta=document.createElement('textarea'); ta.value=text; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select(); const ok=document.execCommand('copy'); document.body.removeChild(ta); return ok; } catch(e){ return false; } }
+
+  /* ---------- 设置 / 改密码 ---------- */
+  $('#gearBtn').onclick = () => $('#settingsModal').classList.add('show');
+  $('#cancelPw').onclick = () => { $('#settingsModal').classList.remove('show'); ['curPw','newPw','newPw2'].forEach(id=>$('#'+id).value=''); };
+  $('#savePw').onclick = () => {
+    const cur=$('#curPw').value, n1=$('#newPw').value, n2=$('#newPw2').value;
+    if (cur!==password) { toast('当前密码不对'); return; }
+    if (!n1 || n1.length<4) { toast('新密码至少 4 位'); return; }
+    if (n1!==n2) { toast('两次新密码不一致'); return; }
+    password=n1; localStorage.setItem(LS_PW,n1);
+    $('#settingsModal').classList.remove('show'); ['curPw','newPw','newPw2'].forEach(id=>$('#'+id).value=''); toast('密码已更新 ✓');
+  };
+
+  $('#gate').style.display='flex';
+})();
+</script>
+<script>
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function(){});
+</script>
+</body>
+</html>
