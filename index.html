@@ -194,6 +194,14 @@
   .sug-steps li { margin: 3px 0; }
   .sug-add { margin-top: 12px; }
 
+  /* 分类管理 */
+  .cat-seg button.cat-add { flex: none; width: 40px; padding: 6px 0; color: var(--accent-dark); font-weight: 700; font-size: 15px; }
+  .emoji-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .emoji-row button { font-size: 20px; width: 42px; height: 42px; border: 1px solid var(--border); background: var(--card); border-radius: 10px; cursor: pointer; display: grid; place-items: center; }
+  .emoji-row button.sel { border-color: var(--accent); background: #F0F5F1; box-shadow: 0 0 0 3px rgba(74,124,89,.12); }
+  .cat-list-item { display: flex; align-items: center; gap: 8px; padding: 9px 2px; border-bottom: 1px dashed var(--border); font-size: 14px; }
+  .cat-list-item .del { margin-left: auto; border: none; background: transparent; color: var(--danger); font-size: 14px; padding: 4px 8px; }
+
   /* 历史 */
   .entry-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; margin-bottom: 12px; box-shadow: var(--shadow); }
   .entry-card .head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
@@ -377,6 +385,24 @@
     </div>
   </div>
 
+  <!-- 分类管理弹窗 -->
+  <div class="modal-bg" id="catModal">
+    <div class="modal">
+      <h2 class="serif">分类管理</h2>
+      <div class="field">
+        <label>分类名称</label>
+        <input type="text" id="catNameInput" placeholder="如：插画、C4D、Figma">
+      </div>
+      <div class="field">
+        <label>图标</label>
+        <div class="emoji-row" id="catEmojiRow"></div>
+      </div>
+      <button class="btn" id="catAddOkBtn">添加分类</button>
+      <div id="catList" style="margin-top:14px"></div>
+      <button class="btn ghost" id="catCloseBtn" style="margin-top:12px">关闭</button>
+    </div>
+  </div>
+
   <div id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.min.js"></script>
@@ -393,11 +419,14 @@
   const WEEK_EN=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const MON_EN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-  const CATS = [
+  const DEFAULT_CATS = [
     { id:'ai', name:'Illustrator', icon:'🎨' },
     { id:'ps', name:'Photoshop', icon:'🖌️' },
     { id:'kv', name:'综合实战', icon:'🏆' },
   ];
+  let customCats = [];
+  let CATS = [...DEFAULT_CATS];
+  function rebuildCats(){ CATS = [...DEFAULT_CATS, ...customCats]; }
 
   const STAGES = [
     { cat:'ai', title:'Illustrator 快捷键突击', items:[
@@ -521,6 +550,7 @@
   const saveCustom = () => replaceAll('custom_plans', Object.keys(customItems).flatMap(catId => (customItems[catId]||[]).map((text, j) => ({ id: uuid(), cat_id: catId, text, position: j }))));
   const saveDetails = () => replaceAll('plan_details', Object.keys(detailStore).map(k => ({ key: k, notes: detailStore[k].notes || '', images: detailStore[k].images || [], review: detailStore[k].review || '' })));
   const saveMat = () => replaceAll('mat_state', Object.keys(matState).map(k => ({ key: k, checked: matState[k] || {} })));
+  const saveCats = () => replaceAll('categories', customCats.map((c, i) => ({ id: uuid(), cat_id: c.id, name: c.name, icon: c.icon, position: i })));
 
   async function loadAll(){
     const [e, p, c, cu, d, m] = await Promise.all([
@@ -537,6 +567,10 @@
     customItems = {}; (cu.data || []).forEach(r => { (customItems[r.cat_id] = customItems[r.cat_id] || []).push(r.text); });
     detailStore = {}; (d.data || []).forEach(r => { detailStore[r.key] = { notes: r.notes || '', images: r.images || [], review: r.review || '' }; });
     matState = {}; (m.data || []).forEach(r => { matState[r.key] = r.checked || {}; });
+    try {
+      const { data: ca } = await supabase.from('categories').select('*').order('position');
+      customCats = (ca || []).map(r => ({ id: r.cat_id, name: r.name, icon: r.icon }));
+    } catch(_) { customCats = []; }
     // 一次性迁移：把旧版（存本机）的记录 + 打卡搬到云端
     try {
       const oe = localStorage.getItem('wl_entries');
@@ -547,6 +581,8 @@
       const oc = localStorage.getItem('wl_checkins');
       if (oc && !Object.keys(checkins).length) { checkins = JSON.parse(oc); saveCheckins(); }
     } catch(_) {}
+    rebuildCats();
+    renderCatSelectors();
     refresh();
   }
   function matChecked(key, i){ return !!(matState[key] && matState[key][i]); }
@@ -965,10 +1001,14 @@
     }
   });
 
-  $('#newPlanCat').innerHTML = CATS.map(c=>`<option value="${c.id}">${c.icon} ${esc(c.name)}</option>`).join('');
-  $('#planCatSeg').innerHTML = CATS.map(c=>`<button data-cat="${c.id}">${c.icon} ${esc(c.name)}</button>`).join('');
+  function renderCatSelectors(){
+    $('#newPlanCat').innerHTML = CATS.map(c=>`<option value="${c.id}">${c.icon} ${esc(c.name)}</option>`).join('');
+    $('#planCatSeg').innerHTML = CATS.map(c=>`<button data-cat="${c.id}">${c.icon} ${esc(c.name)}</button>`).join('') + '<button data-cat="__add" class="cat-add" type="button" title="新增分类">＋</button>';
+  }
+  renderCatSelectors();
   $('#planCatSeg').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.cat === '__add') { openCatModal(); return; }
     planCat = b.dataset.cat;
     renderPlan();
   });
@@ -981,6 +1021,62 @@
     saveCustom(); renderPlan(); renderDashboard(); toast('已添加到「'+(catOf(catId)||{name:'自定义'}).name+'」✓');
   };
   $('#newPlanInput').addEventListener('keydown', e => { if (e.key==='Enter') $('#addPlanBtn').onclick(); });
+
+  /* ---------- 分类管理 ---------- */
+  const CAT_EMOJIS = ['🎨','🖌️','🏆','✍️','🎬','📱','📚','🧠','📷','🎧','💻','🖥','🔧','📝','✂️','🧩','🎮','🖊','🧵','🗂'];
+  let selectedCatEmoji = '🎨';
+
+  function openCatModal(){
+    selectedCatEmoji = '🎨';
+    $('#catNameInput').value = '';
+    renderCatEmojiRow();
+    renderCatManageList();
+    $('#catModal').classList.add('show');
+  }
+  function renderCatEmojiRow(){
+    $('#catEmojiRow').innerHTML = CAT_EMOJIS.map(e=>`<button type="button" data-emoji="${e}" class="${e===selectedCatEmoji?'sel':''}">${e}</button>`).join('');
+  }
+  function renderCatManageList(){
+    const list = customCats;
+    $('#catList').innerHTML = list.length
+      ? list.map(c=>`<div class="cat-list-item"><span>${c.icon} ${esc(c.name)}</span><button class="del" data-delcat="${c.id}" type="button">删除</button></div>`).join('')
+      : '<div class="note" style="margin-top:2px">还没有自定义分类。</div>';
+  }
+
+  $('#catEmojiRow').addEventListener('click', e => {
+    const b = e.target.closest('[data-emoji]'); if (!b) return;
+    selectedCatEmoji = b.dataset.emoji;
+    renderCatEmojiRow();
+  });
+  $('#catAddOkBtn').onclick = () => {
+    const name = $('#catNameInput').value.trim();
+    if (!name) { toast('先给分类起个名字'); return; }
+    const slug = 'cat' + uuid().replace(/-/g,'').slice(0, 10);
+    customCats.push({ id: slug, name, icon: selectedCatEmoji });
+    saveCats();
+    rebuildCats();
+    renderCatSelectors();
+    planCat = slug;
+    renderPlan(); renderDashboard();
+    renderCatManageList();
+    $('#catNameInput').value = '';
+    toast('已添加分类「' + name + '」✓');
+  };
+  $('#catList').addEventListener('click', e => {
+    const b = e.target.closest('[data-delcat]'); if (!b) return;
+    const id = b.dataset.delcat;
+    if (!confirm('删除该分类会连同它下面的计划一起删除，确定？')) return;
+    customCats = customCats.filter(c => c.id !== id);
+    if (customItems[id]) delete customItems[id];
+    saveCats(); saveCustom();
+    rebuildCats();
+    renderCatSelectors();
+    if (planCat === id) planCat = null;
+    renderPlan(); renderDashboard(); renderLearned();
+    renderCatManageList();
+    toast('已删除分类');
+  });
+  $('#catCloseBtn').onclick = () => $('#catModal').classList.remove('show');
 
   /* ---------- 二次确认对话框 ---------- */
   let confirmCb = null;
